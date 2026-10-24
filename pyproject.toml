@@ -1,0 +1,9 @@
+[project]
+name = "agora"
+version = "0.1.0"
+description = "Gateway distribuído para orquestrar LLMs abertos (Redes de Computadores – UFES)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["gateway", "client"]
+testpaths = ["tests"]

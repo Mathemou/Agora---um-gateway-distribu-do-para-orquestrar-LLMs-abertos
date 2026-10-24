@@ -1,0 +1,73 @@
+# Ágora – M1: gateway + 2 nós de inferência Ollama (somente CPU).
+# Orçamento de memória (padrão): 2 × 3 GB (nós) + 512 MB (gateway) ≈ 6,5 GB,
+# abaixo dos 8 GB combinados. Ajuste no .env (veja .env.example).
+#
+#   docker compose up -d --build      # sobe tudo e baixa os modelos
+#   docker compose logs -f gateway
+
+name: agora
+
+x-ollama-node: &ollama-node
+  image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+  restart: unless-stopped
+  environment:
+    OLLAMA_NUM_PARALLEL: ${NODE_PARALLEL:-2}   # requisições simultâneas por nó
+    OLLAMA_MAX_LOADED_MODELS: "1"              # um modelo por nó
+    OLLAMA_KEEP_ALIVE: "-1"                    # não descarrega o modelo
+    OLLAMA_CONTEXT_LENGTH: "2048"
+  mem_limit: ${NODE_MEM_LIMIT:-3g}
+  cpus: ${NODE_CPUS:-2}
+  healthcheck:
+    test: ["CMD", "ollama", "list"]
+    interval: 5s
+    timeout: 5s
+    retries: 30
+
+services:
+  node-redes:
+    <<: *ollama-node
+    volumes:
+      - ollama-redes:/root/.ollama
+    ports:
+      - "21434:11434"   # acesso direto ao nó, só para depuração
+
+  node-prog:
+    <<: *ollama-node
+    volumes:
+      - ollama-prog:/root/.ollama
+    ports:
+      - "21435:11434"
+
+  # Baixa os modelos em cada nó (roda uma vez e termina).
+  pull-models:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    depends_on:
+      node-redes: {condition: service_healthy}
+      node-prog: {condition: service_healthy}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        OLLAMA_HOST=http://node-redes:11434 ollama pull ${MODEL_REDES:-qwen2.5:0.5b} &&
+        OLLAMA_HOST=http://node-prog:11434 ollama pull ${MODEL_PROG:-qwen2.5-coder:0.5b}
+    restart: "no"
+
+  gateway:
+    build: ./gateway
+    restart: unless-stopped
+    depends_on:
+      pull-models: {condition: service_completed_successfully}
+    environment:
+      GATEWAY_CONFIG: /config/gateway.yaml
+      MODEL_REDES: ${MODEL_REDES:-qwen2.5:0.5b}
+      MODEL_PROG: ${MODEL_PROG:-qwen2.5-coder:0.5b}
+      NODE_PARALLEL: ${NODE_PARALLEL:-2}
+    volumes:
+      - ./config:/config:ro
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    mem_limit: 512m
+
+volumes:
+  ollama-redes:
+  ollama-prog:

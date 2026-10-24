@@ -1,0 +1,44 @@
+# Configuração do gateway usada no Docker Compose.
+# Variáveis ${VAR:-padrão} vêm do ambiente (arquivo .env).
+
+metrics_log: logs/requests.jsonl
+keep_alive: -1          # mantém o modelo carregado (evita recarregar a cada pergunta)
+read_timeout_s: 300
+
+nodes:
+  node-redes:
+    url: ${NODE_REDES_URL:-http://node-redes:11434}
+    # Igual ao OLLAMA_NUM_PARALLEL do nó: a fila real fica no gateway.
+    max_concurrency: ${NODE_PARALLEL:-2}
+    max_queue: 32
+  node-prog:
+    url: ${NODE_PROG_URL:-http://node-prog:11434}
+    max_concurrency: ${NODE_PARALLEL:-2}
+    max_queue: 32
+
+domains:
+  redes:
+    description: Assistente da disciplina de Redes de Computadores
+    node: node-redes
+    model: ${MODEL_REDES:-qwen2.5:0.5b}
+    system_prompt: |
+      Você é o monitor da disciplina de Redes de Computadores da UFES.
+      Responda em português do Brasil, de forma didática e objetiva, citando
+      a camada (aplicação, transporte, rede, enlace) quando fizer sentido.
+      Se não souber, diga que não sabe.
+    options:
+      temperature: 0.3
+      num_ctx: 2048
+      num_predict: 256
+
+  programacao:
+    description: Assistente de programação
+    node: node-prog
+    model: ${MODEL_PROG:-qwen2.5-coder:0.5b}
+    system_prompt: |
+      Você é um assistente de programação. Responda em português do Brasil.
+      Prefira exemplos curtos de código em Python, com comentários breves.
+    options:
+      temperature: 0.2
+      num_ctx: 2048
+      num_predict: 384
