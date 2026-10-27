@@ -94,6 +94,8 @@ docker compose logs -f gateway
 curl http://localhost:8000/health
 ```
 
+Com tudo no ar, abra **http://localhost:8000** no navegador: é a interface web de chat (escolha do assistente, respostas token a token, botão de parar, histórico por assistente e as métricas TTFT/tokens/s de cada resposta). O arquivo fica em `gateway/agora/static/index.html`; depois de editá-lo, rode `docker compose up -d --build gateway`.
+
 **Orçamento de memória (somente CPU):** cada nó tem limite de 3 GB e o gateway de 512 MB, ≈ **6,5 GB no total**, abaixo dos 8 GB que definimos como teto para rodar também na máquina com menos RAM. No Windows, o Docker Desktop usa o WSL2: para limitar a VM inteira, crie `%UserProfile%\.wslconfig` com:
 
 ```ini
@@ -169,6 +171,7 @@ gateway/agora/
   metrics.py      TTFT, tokens/s, e2e, vazão e log JSONL
   config.py       leitura do YAML (com variáveis de ambiente)
   fake_node.py    nó falso compatível com o Ollama
+  static/index.html  interface web de chat (servida em GET /)
 client/
   chat.py         cliente de linha de comando
   bench.py        gerador de carga (base do experimento) → CSV em results/

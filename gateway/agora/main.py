@@ -11,11 +11,12 @@ import json
 import time
 import uuid
 from contextlib import aclosing, asynccontextmanager
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
 from . import __version__
@@ -42,6 +43,10 @@ class ChatRequest(BaseModel):
         if not self.prompt and not self.messages:
             raise ValueError("informe 'prompt' ou 'messages'")
         return self
+
+
+# Interface web de chat (arquivo estático servido em GET /).
+UI_FILE = Path(__file__).parent / "static" / "index.html"
 
 
 def sse(event: str, data: dict[str, Any]) -> str:
@@ -73,6 +78,11 @@ def create_app(
     app.state.config = cfg
     app.state.queues = queues
     app.state.metrics = metrics
+
+    @app.get("/", include_in_schema=False)
+    async def ui() -> FileResponse:
+        """Interface web de chat: abra http://localhost:8000 no navegador."""
+        return FileResponse(UI_FILE, media_type="text/html")
 
     @app.get("/health")
     async def health() -> dict[str, Any]:

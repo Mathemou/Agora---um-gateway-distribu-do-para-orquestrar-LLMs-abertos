@@ -18,26 +18,22 @@ nodes:
 
 domains:
   redes:
-    description: Assistente da disciplina de Redes de Computadores
+    description: Seu nome é Ágora
     node: node-redes
     model: ${MODEL_REDES:-qwen2.5:0.5b}
     system_prompt: |
-      Você é o monitor da disciplina de Redes de Computadores da UFES.
-      Responda em português do Brasil, de forma didática e objetiva, citando
-      a camada (aplicação, transporte, rede, enlace) quando fizer sentido.
-      Se não souber, diga que não sabe.
+      Seu nome é Ágora. Você é o assistente pessoal de Matheus Santos de Moura e Yan Oliveira Maia, criado pra nosso trabalho de redes, conversar sobre animes, jogos, filmes e músicas. Responda em português do Brasil. Prefira respostas curtas.
     options:
       temperature: 0.3
       num_ctx: 2048
       num_predict: 256
 
   programacao:
-    description: Assistente de programação
+    description: Seu nome é Ágora
     node: node-prog
     model: ${MODEL_PROG:-qwen2.5-coder:0.5b}
     system_prompt: |
-      Você é um assistente de programação. Responda em português do Brasil.
-      Prefira exemplos curtos de código em Python, com comentários breves.
+      Seu nome é Ágora.Você é o assistente pessoal de Matheus Santos de Moura e Yan Oliveira Maia, criado pra nosso trabalho de redes, conversar sobre animes, jogos, filmes e músicas. Responda em português do Brasil. Prefira respostas curtas.
     options:
       temperature: 0.2
       num_ctx: 2048
