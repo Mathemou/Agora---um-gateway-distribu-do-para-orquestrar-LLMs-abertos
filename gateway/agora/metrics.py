@@ -8,6 +8,9 @@ Definições (todas medidas no gateway, a partir da chegada da requisição):
 - gateway_tps: tokens / (e2e - ttft), a taxa de geração vista pelo cliente.
 - node_tps: eval_count / eval_duration, a taxa informada pelo próprio Ollama.
 - vazão: tokens/s agregados de todas as requisições numa janela de tempo.
+
+Cada registro diz de onde veio a requisição (`source`): da API pública ou do
+jogo (IA impostora / Mestre), o que permite separar as duas cargas na análise.
 """
 
 from __future__ import annotations
@@ -29,6 +32,9 @@ class RequestRecord:
     model: str
     started_at: float  # epoch (s)
     status: str = "pending"  # ok | error | cancelled
+    # Quem pediu: "api" (POST /v1/chat), "impostor" (IA jogando) ou "mestre" (narrador).
+    source: str = "api"
+    room: str | None = None
     queue_position: int = 0
     queue_wait_ms: float | None = None
     ttft_ms: float | None = None
@@ -94,8 +100,8 @@ class MetricsStore:
         elapsed = min(window_s, time.time() - self.started) or 1.0
         return round(n / elapsed, 3)
 
-    def summary(self, window_s: float = 60.0) -> dict[str, Any]:
-        recs = list(self.records)
+    def summary(self, window_s: float = 60.0, source: str | None = None) -> dict[str, Any]:
+        recs = [r for r in self.records if source is None or r.source == source]
         ok = [r for r in recs if r.status == "ok"]
 
         def stats(attr: str) -> dict[str, float | None]:
@@ -107,11 +113,14 @@ class MetricsStore:
             }
 
         by_status: dict[str, int] = {}
+        by_source: dict[str, int] = {}
         for r in recs:
             by_status[r.status] = by_status.get(r.status, 0) + 1
+            by_source[r.source] = by_source.get(r.source, 0) + 1
         return {
             "requests": len(recs),
             "by_status": by_status,
+            "by_source": by_source,
             "ttft_ms": stats("ttft_ms"),
             "e2e_ms": stats("e2e_ms"),
             "queue_wait_ms": stats("queue_wait_ms"),

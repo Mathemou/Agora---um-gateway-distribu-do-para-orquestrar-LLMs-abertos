@@ -1,9 +1,9 @@
 """Cliente de linha de comando do Ágora.
 
 Pergunta avulsa:
-    python client/chat.py -d redes "O que é o three-way handshake?"
+    python client/chat.py -d mestre "Faça uma pergunta para os jogadores"
 Modo conversa (mantém o histórico; Ctrl+C ou linha vazia para sair):
-    python client/chat.py -d programacao
+    python client/chat.py -d impostor        (finja que você é um jogador)
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def _print_stats(res) -> None:
 async def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("prompt", nargs="?", help="pergunta (sem ela, entra no modo conversa)")
-    p.add_argument("-d", "--domain", default="redes")
+    p.add_argument("-d", "--domain", default="mestre")
     p.add_argument("-u", "--url", default=DEFAULT_URL)
     p.add_argument("-n", "--max-tokens", type=int)
     a = p.parse_args()
@@ -57,7 +57,8 @@ async def main() -> None:
             sys.exit(f"domínio '{a.domain}' não existe. Opções: {', '.join(domains)}")
 
         def payload(messages):
-            body = {"domain": a.domain, "messages": messages}
+            body = {"domain": a.domain, "messages": messages,
+                    "variables": {"alias": "Laranja", "others": "Azul, Verde"}}
             if a.max_tokens:
                 body["max_tokens"] = a.max_tokens
             return body

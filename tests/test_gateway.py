@@ -23,10 +23,11 @@ def make_config(tmp_path, max_queue=8):
             "n2": {"url": "http://fake", "max_concurrency": 1, "max_queue": max_queue},
         },
         "domains": {
-            "redes": {"node": "n1", "model": "qwen2.5:0.5b", "system_prompt": "monitor"},
-            "programacao": {"node": "n2", "model": "qwen2.5-coder:0.5b"},
+            "impostor": {"node": "n1", "model": "qwen2.5:1.5b", "system_prompt": "Você é {alias}."},
+            "mestre": {"node": "n2", "model": "qwen2.5:0.5b"},
             "quebrado": {"node": "n2", "model": "nao-existe"},
         },
+        "game": {"log_path": None},
     })
 
 
@@ -56,7 +57,7 @@ async def client_for(app):
 
 async def test_stream_token_a_token_e_metricas(gateway, tmp_path):
     async with await client_for(gateway) as c:
-        r = await c.post("/v1/chat", json={"domain": "redes", "prompt": "oi"})
+        r = await c.post("/v1/chat", json={"domain": "impostor", "prompt": "oi"})
         assert r.status_code == 200
         assert r.headers["content-type"].startswith("text/event-stream")
         events = parse_sse(r.text)
@@ -76,9 +77,9 @@ async def test_stream_token_a_token_e_metricas(gateway, tmp_path):
 
 async def test_roteia_pelo_dominio(gateway):
     async with await client_for(gateway) as c:
-        r = await c.post("/v1/chat", json={"domain": "programacao", "prompt": "oi"})
+        r = await c.post("/v1/chat", json={"domain": "mestre", "prompt": "oi"})
         done = parse_sse(r.text)[-1][1]
-        assert done["node"] == "n2" and done["model"] == "qwen2.5-coder:0.5b"
+        assert done["node"] == "n2" and done["model"] == "qwen2.5:0.5b"
 
 
 async def test_dominio_desconhecido_404(gateway):
@@ -89,7 +90,7 @@ async def test_dominio_desconhecido_404(gateway):
 
 async def test_requisicao_sem_conteudo_422(gateway):
     async with await client_for(gateway) as c:
-        r = await c.post("/v1/chat", json={"domain": "redes"})
+        r = await c.post("/v1/chat", json={"domain": "impostor"})
         assert r.status_code == 422
 
 
@@ -107,14 +108,14 @@ async def test_fila_cheia_503(tmp_path):
     app = create_app(make_config(tmp_path, max_queue=0), transport=httpx.ASGITransport(app=fake))
     app.state.queues["n1"].enqueue()  # ocupa a única vaga
     async with await client_for(app) as c:
-        r = await c.post("/v1/chat", json={"domain": "redes", "prompt": "oi"})
+        r = await c.post("/v1/chat", json={"domain": "impostor", "prompt": "oi"})
         assert r.status_code == 503
         assert r.headers["retry-after"] == "2"
 
 
 async def test_health_e_metrics(gateway):
     async with await client_for(gateway) as c:
-        await c.post("/v1/chat", json={"domain": "redes", "prompt": "oi"})
+        await c.post("/v1/chat", json={"domain": "impostor", "prompt": "oi"})
         h = (await c.get("/health")).json()
         assert h["nodes"]["n1"]["up"] is True
         assert h["nodes"]["n2"]["missing"] == ["nao-existe"]
@@ -128,3 +129,36 @@ def test_keep_alive_numerico_vira_inteiro(tmp_path):
         cfg = make_config(tmp_path).model_dump()
         cfg["keep_alive"] = raw
         assert GatewayConfig.model_validate(cfg).keep_alive == expected
+
+
+async def test_variaveis_no_prompt_de_sistema(tmp_path):
+    seen = {}
+    fake = create_fake_app(tokens=1, token_ms=1, prefill_ms=1)
+
+    class Spy(httpx.ASGITransport):
+        async def handle_async_request(self, request):
+            if request.url.path == "/api/chat":
+                seen.update(json.loads(request.content))
+            return await super().handle_async_request(request)
+
+    app = create_app(make_config(tmp_path), transport=Spy(app=fake))
+    async with await client_for(app) as c:
+        r = await c.post("/v1/chat", json={"domain": "impostor", "prompt": "oi",
+                                           "variables": {"alias": "Laranja"}})
+        assert parse_sse(r.text)[-1][0] == "done"
+    assert seen["messages"][0] == {"role": "system", "content": "Você é Laranja."}
+
+
+async def test_metricas_separadas_por_origem(gateway):
+    async with await client_for(gateway) as c:
+        await c.post("/v1/chat", json={"domain": "impostor", "prompt": "oi"})
+        m = (await c.get("/metrics", params={"source": "api"})).json()
+        assert m["summary"]["by_source"] == {"api": 1}
+        assert (await c.get("/metrics", params={"source": "impostor"})).json()["summary"]["requests"] == 0
+
+
+async def test_paginas_estaticas(gateway):
+    async with await client_for(gateway) as c:
+        for path in ("/", "/chat", "/painel"):
+            r = await c.get(path)
+            assert r.status_code == 200 and "<html" in r.text

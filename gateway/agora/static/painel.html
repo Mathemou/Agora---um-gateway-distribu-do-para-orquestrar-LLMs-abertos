@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ágora · Painel da rede</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Commissioner:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #f6f7f5; --panel: #ffffff; --panel2: #eef1ef; --line: #dde2e3; --line2: #c9d1d4; --grid: #e8ecec;
+  --text: #1b2a35; --muted: #5f6e78; --dim: #8a979f;
+  --ice: #2d5f8a;    /* acento: vaga ocupada, prefill */
+  --warn: #a8781f;   /* espera na fila */
+  --gen: #9aa7b0;    /* geração */
+  --ok: #3f7a4a; --bad: #a63d2f;
+  --s-impostor: #2a78d6; --s-mestre: #eb6834; --s-api: #1baf7a;
+  --display: "Marcellus", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: Commissioner, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11171c; --panel: #182129; --panel2: #141c22; --line: #26323b; --line2: #33424d; --grid: #202b33;
+    --text: #e4e9ec; --muted: #93a1ab; --dim: #6c7b85;
+    --ice: #7fb0da; --warn: #d2a24c; --gen: #5d6d78; --ok: #7bbf87; --bad: #e07a6a;
+    --s-impostor: #3987e5; --s-mestre: #d95926; --s-api: #199e70;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); }
+header { display: flex; align-items: center; gap: 16px; padding: 12px 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.brand { font: 22px/1 var(--display); color: var(--text); text-decoration: none; }
+.brand small { font: 14px/1 var(--sans); color: var(--muted); margin-left: 10px; }
+.spacer { flex: 1; }
+.live { font-size: 13px; color: var(--ok); display: flex; align-items: center; gap: 6px; }
+.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.live.off { color: var(--bad); }
+button { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+button:hover { border-color: var(--ice); }
+button[aria-pressed="true"] { border-color: var(--warn); color: var(--warn); }
+:focus-visible { outline: 2px solid var(--ice); outline-offset: 2px; }
+main { padding: 20px 24px 32px; max-width: 1400px; margin: 0 auto; display: grid; gap: 18px; }
+.label { font-size: 13px; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.tile .v { font: 38px/1 var(--display); margin-top: 10px; font-variant-numeric: tabular-nums; }
+.tile .v small { font: 14px/1 var(--sans); color: var(--muted); margin-left: 4px; }
+.tile .sub { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.nodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.node h3 { margin: 0 0 4px; font: 20px/1.2 var(--display); font-weight: 400; display: flex; justify-content: space-between; gap: 8px; }
+.node .kind { font: 12px/1 var(--sans); color: var(--muted); border: 1px solid var(--line2); padding: 4px 8px; border-radius: 999px; align-self: center; }
+.slots { display: flex; gap: 6px; margin: 12px 0 8px; flex-wrap: wrap; }
+.slot { width: 24px; height: 24px; border-radius: 6px; border: 1.5px solid var(--line2); }
+.slot.busy { background: var(--ice); border-color: var(--ice); }
+.qbar { height: 8px; border-radius: 4px; background: var(--panel2); overflow: hidden; margin-top: 6px; }
+.qbar > div { height: 100%; background: var(--warn); border-radius: 4px; transition: width .3s; }
+.node .row { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 6px; }
+.node .row b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.status { font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
+.status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
+.split { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
+.chart-wrap { position: relative; }
+svg text { font: 11px var(--sans); fill: var(--muted); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 8px; padding: 7px 10px; font-size: 12px; white-space: nowrap; transform: translate(-50%, calc(-100% - 12px)); display: none; z-index: 2; }
+.spoiler { display: grid; place-items: center; text-align: center; color: var(--muted); min-height: 260px; border: 1px dashed var(--line2); border-radius: 10px; padding: 20px; }
+.spoiler b { color: var(--text); font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 8px 6px; border-bottom: 1px solid var(--line); }
+td { padding: 7px 6px; border-bottom: 1px solid var(--grid); }
+td.num, th.num { text-align: right; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.scroll { max-height: 340px; overflow: auto; }
+.bars { display: grid; gap: 10px; margin-top: 12px; }
+.bar-row { display: grid; grid-template-columns: 110px 1fr 70px; gap: 10px; align-items: center; font-size: 12px; }
+.bar-track { height: 14px; background: var(--panel2); border-radius: 4px; overflow: hidden; display: flex; gap: 2px; }
+.bar-track > div { height: 100%; }
+.bar-track > div:first-child { border-radius: 4px 0 0 4px; }
+.bar-track > div:last-child { border-radius: 0 4px 4px 0; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } main, header { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/">Ágora<small>Painel da rede</small></a>
+  <div class="spacer"></div>
+  <span id="live" class="live">Ao vivo</span>
+  <button id="spoilerBtn" aria-pressed="false" title="A linha do tempo mostra QUANDO a IA está gerando; durante a partida isso entrega quem ela é.">Mostrar linha do tempo (spoiler)</button>
+</header>
+<main>
+  <section class="tiles" aria-label="Resumo">
+    <div class="card tile"><div class="label">Salas</div><div class="v" id="tRooms">–</div><div class="sub" id="tRoomsSub">abertas agora</div></div>
+    <div class="card tile"><div class="label">TTFT da IA (mediana)</div><div class="v" id="tTtft">–</div><div class="sub" id="tTtftSub">fila + prefill até o 1º token</div></div>
+    <div class="card tile"><div class="label">Geração da IA</div><div class="v" id="tTps">–</div><div class="sub">tokens/s vistos pelo gateway</div></div>
+    <div class="card tile"><div class="label">Vazão agregada</div><div class="v" id="tThr">–</div><div class="sub">tokens/s, todos os nós, últimos 60 s</div></div>
+    <div class="card tile"><div class="label">Requisições</div><div class="v" id="tReq">–</div><div class="sub" id="tReqSub">–</div></div>
+  </section>
+
+  <section>
+    <div class="label" style="margin:0 0 10px">Filas por nó (cada quadrado é uma vaga; aceso = ocupada)</div>
+    <div class="nodes" id="nodes"></div>
+  </section>
+
+  <section class="split">
+    <div class="card">
+      <div class="label">TTFT por requisição, últimos minutos</div>
+      <div id="chartArea" class="chart-wrap" style="margin-top:12px"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card">
+      <div class="label">Onde vai o tempo de uma resposta (mediana por origem)</div>
+      <div class="bars" id="budget"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--warn)"></i>espera na fila</span>
+        <span><i class="dot" style="background:var(--ice)"></i>até o 1º token (prefill)</span>
+        <span><i class="dot" style="background:var(--gen)"></i>gerando os tokens</span>
+      </div>
+      <p class="sub" style="color:var(--muted);font-size:12px;margin:12px 0 0">Para a IA, tudo isso precisa caber no tempo que um humano levaria para ler e digitar (≈ 4 a 12 s), senão ela se entrega pelo relógio.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="label">Últimas requisições</div>
+    <div id="tableArea" style="margin-top:10px"></div>
+  </section>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const SVGNS = "http://www.w3.org/2000/svg";
+const svg = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+
+// Cor segue a origem (fixa), forma reforça (círculo, quadrado, triângulo): não depende só da cor.
+const SERIES = {
+  impostor: { name: "IA impostora", color: "var(--s-impostor)", shape: "circle" },
+  mestre: { name: "Mestre", color: "var(--s-mestre)", shape: "square" },
+  api: { name: "API /v1/chat", color: "var(--s-api)", shape: "triangle" },
+};
+const seriesOf = (src) => SERIES[src] ? src : null;  // aquecimento e outros ficam de fora do gráfico
+
+let spoiler = false;
+try { spoiler = sessionStorage.getItem("agora:spoiler") === "1"; } catch {}
+const sb = $("spoilerBtn");
+function syncSpoiler() {
+  sb.setAttribute("aria-pressed", String(spoiler));
+  sb.textContent = spoiler ? "Esconder linha do tempo" : "Mostrar linha do tempo (spoiler)";
+}
+sb.onclick = () => { spoiler = !spoiler; try { sessionStorage.setItem("agora:spoiler", spoiler ? "1" : "0"); } catch {} syncSpoiler(); render(); };
+syncSpoiler();
+
+const fmtMs = (v) => v == null ? "–" : v >= 10000 ? (v / 1000).toFixed(0) + " s" : v >= 1000 ? (v / 1000).toFixed(1) + " s" : Math.round(v) + " ms";
+const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+let data = { metrics: null, ai: null, nodes: [], reqs: [], health: null };
+
+async function poll() {
+  try {
+    const [metrics, ai, reqs] = await Promise.all([
+      fetch("/metrics?window_s=60").then((r) => r.json()),
+      fetch("/metrics?window_s=60&source=impostor").then((r) => r.json()),
+      fetch("/metrics/requests?limit=300").then((r) => r.json()),
+    ]);
+    data.metrics = metrics; data.ai = ai; data.nodes = metrics.nodes; data.reqs = reqs;
+    $("live").classList.remove("off"); $("live").textContent = "Ao vivo";
+    render();
+  } catch {
+    $("live").classList.add("off"); $("live").textContent = "Sem conexão";
+  }
+}
+async function pollHealth() {
+  try { data.health = await fetch("/health").then((r) => r.json()); render(); } catch {}
+}
+
+function render() {
+  const m = data.metrics; if (!m) return;
+  const s = m.summary, ai = data.ai.summary;
+  $("tRooms").replaceChildren(String(m.rooms.open), Object.assign(el("small"), { textContent: `${m.rooms.playing} em partida` }));
+  $("tTtft").textContent = fmtMs(ai.ttft_ms.p50);
+  $("tTtftSub").textContent = ai.ttft_ms.p95 != null ? `p95 ${fmtMs(ai.ttft_ms.p95)}, fila + prefill até o 1º token` : "fila + prefill até o 1º token";
+  $("tTps").replaceChildren(ai.gateway_tps.mean != null ? ai.gateway_tps.mean.toFixed(1) : "–", Object.assign(el("small"), { textContent: "tok/s" }));
+  $("tThr").replaceChildren(s.throughput_tokens_per_s.value.toFixed(1), Object.assign(el("small"), { textContent: "tok/s" }));
+  const failed = (s.by_status.error || 0) + (s.by_status.cancelled || 0);
+  $("tReq").textContent = String(s.requests);
+  $("tReqSub").textContent = Object.entries(s.by_source).map(([k, v]) => `${k} ${v}`).join(", ") + (failed ? `, ${failed} falhas` : "");
+  renderNodes(); renderBudget(); renderChart(); renderTable();
+}
+
+function renderNodes() {
+  const box = $("nodes"); box.replaceChildren();
+  for (const n of data.nodes) {
+    const c = el("div", "card node");
+    const h = el("h3"); h.append(el("span", null, n.node));
+    const hn = data.health && data.health.nodes[n.node];
+    if (hn) h.append(el("span", "kind", hn.kind === "anthropic" ? "nuvem" : "local"));
+    c.append(h);
+    if (hn) {
+      const st = el("span", "status " + (hn.up && !(hn.missing || []).length ? "ok" : "bad"),
+        hn.up ? ((hn.missing || []).length ? "● no ar, falta modelo: " + hn.missing.join(", ") : "● no ar") : "● fora do ar");
+      c.append(st);
+    }
+    const slots = el("div", "slots");
+    for (let i = 0; i < n.max_concurrency; i++) slots.append(el("div", "slot" + (i < n.active ? " busy" : "")));
+    c.append(slots);
+    const r1 = el("div", "row"); r1.append(el("span", null, "atendendo"), Object.assign(el("b"), { textContent: `${n.active} de ${n.max_concurrency}` }));
+    const r2 = el("div", "row"); r2.append(el("span", null, "esperando na fila"), Object.assign(el("b"), { textContent: `${n.waiting} de ${n.max_queue}` }));
+    const bar = el("div", "qbar"); const fill = el("div"); fill.style.width = (n.max_queue ? Math.min(100, 100 * n.waiting / n.max_queue) : 0) + "%"; bar.append(fill);
+    const r3 = el("div", "row"); r3.append(el("span", null, "admitidas, recusadas (503), desistências"), Object.assign(el("b"), { textContent: `${n.total_admitted} / ${n.total_rejected} / ${n.total_abandoned}` }));
+    c.append(r1, r2, bar, r3);
+    box.append(c);
+  }
+}
+
+function renderBudget() {
+  const box = $("budget"); box.replaceChildren();
+  const ok = data.reqs.filter((r) => r.status === "ok" && r.ttft_ms != null && r.e2e_ms != null);
+  const rows = Object.keys(SERIES).map((k) => {
+    const rs = ok.filter((r) => r.source === k);
+    if (!rs.length) return null;
+    const q = median(rs.map((r) => r.queue_wait_ms || 0));
+    const t = median(rs.map((r) => r.ttft_ms - (r.queue_wait_ms || 0)));
+    const g = median(rs.map((r) => r.e2e_ms - r.ttft_ms));
+    return { k, q, t, g, total: q + t + g };
+  }).filter(Boolean);
+  const max = Math.max(1, ...rows.map((r) => r.total));
+  if (!rows.length) { box.append(el("div", "sub", "Sem requisições ainda.")); return; }
+  for (const r of rows) {
+    const row = el("div", "bar-row");
+    const name = el("span"); name.append(Object.assign(el("i", "dot"), { style: `background:${SERIES[r.k].color}` }), SERIES[r.k].name);
+    const track = el("div", "bar-track");
+    for (const [v, col, lbl] of [[r.q, "var(--warn)", "fila"], [r.t, "var(--ice)", "até o 1º token"], [r.g, "var(--gen)", "gerando"]]) {
+      if (v <= 0) continue;
+      const seg = el("div"); seg.style.width = (100 * v / max) + "%"; seg.style.background = col; seg.title = `${lbl}: ${fmtMs(v)}`;
+      track.append(seg);
+    }
+    const tot = el("span", null, fmtMs(r.total)); tot.style.textAlign = "right";
+    row.append(name, track, tot); box.append(row);
+  }
+}
+
+function spoilerBox() {
+  const d = el("div", "spoiler");
+  d.innerHTML = "<div><b>Escondido durante a partida.</b><br>A linha do tempo mostra <i>quando</i> a IA está gerando uma resposta.<br>No telão, ela entrega quem é a IA. Mostre depois da votação.</div>";
+  return d;
+}
+
+function marker(shape, x, y, color, r = 5) {
+  if (shape === "square") return svg("rect", { x: x - r, y: y - r, width: 2 * r, height: 2 * r, rx: 2, fill: color, stroke: "var(--panel)", "stroke-width": 2 });
+  if (shape === "triangle") return svg("path", { d: `M${x},${y - r - 1} L${x + r + 1},${y + r} L${x - r - 1},${y + r} Z`, fill: color, stroke: "var(--panel)", "stroke-width": 2 });
+  return svg("circle", { cx: x, cy: y, r, fill: color, stroke: "var(--panel)", "stroke-width": 2 });
+}
+
+function renderChart() {
+  const area = $("chartArea"); area.replaceChildren();
+  const legend = $("legend"); legend.replaceChildren();
+  if (!spoiler) { area.append(spoilerBox()); return; }
+  // janela adaptável: do 1º ponto até agora, entre 2 e 10 minutos
+  const now = Date.now() / 1000;
+  const all = data.reqs.filter((r) => seriesOf(r.source) && r.ttft_ms != null && r.started_at >= now - 600);
+  const span = Math.min(600, Math.max(120, now - Math.min(now, ...all.map((p) => p.started_at)) + 15));
+  const t0 = now - span;
+  const pts = all.filter((r) => r.started_at >= t0);
+  const W = Math.max(320, area.clientWidth || 700), H = 280, L = 52, R = 14, T = 12, B = 30;
+  const ymax = Math.max(2000, ...pts.map((p) => p.ttft_ms)) * 1.1;
+  const step = ymax > 60000 ? 20000 : ymax > 20000 ? 5000 : ymax > 8000 ? 2000 : 1000;
+  const x = (t) => L + (W - L - R) * (t - t0) / span;
+  const y = (v) => T + (H - T - B) * (1 - v / ymax);
+  const s = svg("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "TTFT por requisição nos últimos 10 minutos" });
+  for (let v = 0; v <= ymax; v += step) {
+    s.append(svg("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: "var(--grid)", "stroke-width": 1 }));
+    const t = svg("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }); t.textContent = fmtMs(v); s.append(t);
+  }
+  const tick = span > 300 ? 120 : span > 150 ? 60 : 30;
+  for (let k = Math.floor(span / tick) * tick; k >= 0; k -= tick) {
+    const t = svg("text", { x: x(now - k), y: H - 8, "text-anchor": "middle" });
+    t.textContent = k === 0 ? "agora" : k >= 60 ? `-${k / 60} min` : `-${k} s`; s.append(t);
+  }
+  const tip = $("tip");
+  for (const p of pts) {
+    const ser = SERIES[p.source];
+    const g = svg("g", { style: "cursor:default" });
+    g.append(marker(ser.shape, x(p.started_at), y(p.ttft_ms), ser.color));
+    const hit = svg("circle", { cx: x(p.started_at), cy: y(p.ttft_ms), r: 12, fill: "transparent" });
+    g.append(hit);
+    g.addEventListener("mouseenter", () => {
+      const rect = area.getBoundingClientRect();
+      tip.textContent = `${ser.name}: TTFT ${fmtMs(p.ttft_ms)}, fila ${fmtMs(p.queue_wait_ms)}, total ${fmtMs(p.e2e_ms)}, ${p.output_tokens} tokens`;
+      tip.style.left = (rect.left + window.scrollX + x(p.started_at)) + "px";
+      tip.style.top = (rect.top + window.scrollY + y(p.ttft_ms)) + "px";
+      tip.style.display = "block";
+    });
+    g.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+    s.append(g);
+  }
+  area.append(s);
+  for (const [k, ser] of Object.entries(SERIES)) {
+    const n = pts.filter((p) => p.source === k).length;
+    const sp = el("span"); const ms = svg("svg", { width: 14, height: 14 }); ms.append(marker(ser.shape, 7, 7, ser.color, 5));
+    sp.append(ms, `${ser.name} (${n})`); legend.append(sp);
+  }
+}
+
+function renderTable() {
+  const area = $("tableArea"); area.replaceChildren();
+  if (!spoiler) { const d = spoilerBox(); d.style.minHeight = "120px"; area.append(d); return; }
+  const wrap = el("div", "scroll");
+  const t = el("table");
+  const head = el("tr");
+  for (const [h, num] of [["hora"], ["origem"], ["modelo"], ["nó"], ["sala"], ["fila", 1], ["TTFT", 1], ["total", 1], ["tokens", 1], ["tok/s", 1], ["status"]]) {
+    const th = el("th", num ? "num" : null, h); head.append(th);
+  }
+  t.append(head);
+  for (const r of [...data.reqs].reverse().slice(0, 60)) {
+    const tr = el("tr");
+    const ser = SERIES[r.source];
+    const src = el("td"); if (ser) src.append(Object.assign(el("i", "dot"), { style: `background:${ser.color}` })); src.append(r.source);
+    const cells = [
+      el("td", null, new Date(r.started_at * 1000).toLocaleTimeString("pt-BR")), src,
+      el("td", null, r.model), el("td", null, r.node), el("td", null, r.room || "–"),
+      el("td", "num", fmtMs(r.queue_wait_ms)), el("td", "num", fmtMs(r.ttft_ms)), el("td", "num", fmtMs(r.e2e_ms)),
+      el("td", "num", String(r.output_tokens)), el("td", "num", r.gateway_tps ? r.gateway_tps.toFixed(1) : "–"),
+      el("td", null, r.status),
+    ];
+    if (r.status !== "ok") cells[cells.length - 1].style.color = "var(--bad)";
+    tr.append(...cells); t.append(tr);
+  }
+  wrap.append(t); area.append(wrap);
+}
+
+window.addEventListener("resize", () => renderChart());
+poll(); pollHealth();
+setInterval(poll, 1000);
+setInterval(pollHealth, 10000);
+</script>
+</body>
+</html>

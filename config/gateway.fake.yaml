@@ -1,30 +1,38 @@
 # Gateway apontando para o nó FALSO (agora.fake_node), sem gastar CPU com LLM.
-# Útil para testar o protocolo, a fila e o gerador de carga.
+# Dá para jogar uma partida inteira (a IA "fala" frases prontas) e testar
+# protocolo, filas, WebSocket e o gerador de carga.
 #   python -m agora.fake_node --port 11435   (dentro de gateway/)
 
 metrics_log: logs/requests-fake.jsonl
 keep_alive: "5m"
 
 nodes:
-  node-redes:
+  node-impostor:
     url: http://127.0.0.1:11435
     max_concurrency: 1
     max_queue: 32
-  node-prog:
+  node-mestre:
     url: http://127.0.0.1:11435
     max_concurrency: 1
     max_queue: 32
 
 domains:
-  redes:
-    description: Assistente de Redes (nó falso)
-    node: node-redes
+  impostor:
+    description: IA impostora (nó falso)
+    node: node-impostor
+    model: qwen2.5:1.5b
+    system_prompt: Você é o jogador {alias}. Outros jogadores são {others}.
+    options: {num_predict: 10}
+  mestre:
+    description: O Mestre (nó falso)
+    node: node-mestre
     model: qwen2.5:0.5b
-    system_prompt: Você é o monitor de Redes.
-    options: {num_predict: 40}
-  programacao:
-    description: Assistente de programação (nó falso)
-    node: node-prog
-    model: qwen2.5-coder:0.5b
-    system_prompt: Você é um assistente de programação.
-    options: {num_predict: 40}
+    system_prompt: Você é o Mestre do Jogo da Imitação.
+    options: {num_predict: 14}
+
+game:
+  min_players: ${GAME_MIN_PLAYERS:-3}
+  discussion_s: ${GAME_DISCUSSION_S:-90}
+  vote_s: 30
+  reveal_s: 6
+  log_path: logs/games-fake.jsonl

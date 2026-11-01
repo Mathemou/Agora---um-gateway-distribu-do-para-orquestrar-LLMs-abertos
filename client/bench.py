@@ -3,7 +3,7 @@
 Base do experimento obrigatório (variar 1, 2, 4, 8, 16 clientes e medir TTFT e
 vazão). Cada cliente faz `--requests` perguntas em sequência (sistema fechado).
 
-    python client/bench.py -c 1 2 4 8 16 -r 3 --repeat 3 -d redes
+    python client/bench.py -c 1 2 4 8 16 -r 3 --repeat 3 -d impostor
 
 Saídas em results/: um CSV por requisição e um CSV resumido por nível de carga.
 """
@@ -26,17 +26,18 @@ sys.path.insert(0, os.path.dirname(__file__))
 from sse_client import ClientResult, ask  # noqa: E402
 
 PROMPTS = {
-    "redes": [
-        "Explique em poucas frases o three-way handshake do TCP.",
-        "Qual a diferença entre controle de fluxo e controle de congestionamento?",
-        "Para que serve o protocolo ARP?",
-        "O que é o TTL de um pacote IP?",
+    # Falas típicas de uma partida: a IA responde como um jogador.
+    "impostor": [
+        "Conversa até agora:\nAzul: oi gente\nVerde: qual foi a última coisa que te fez rir?\n\nVocê é Laranja. Escreva só a sua próxima mensagem.",
+        "Conversa até agora:\nAzul: Laranja, você é robô?\n\nVocê é Laranja. Escreva só a sua próxima mensagem.",
+        "Conversa até agora:\nVerde: o que vocês jantaram ontem?\n\nVocê é Laranja. Escreva só a sua próxima mensagem.",
+        "Conversa até agora:\nAzul: acho que é o Verde\nVerde: nada a ver kkk\n\nVocê é Laranja. Escreva só a sua próxima mensagem.",
     ],
-    "programacao": [
-        "Escreva uma função Python que inverte uma string.",
-        "Explique o que é uma condição de corrida.",
-        "Como abrir um socket TCP em Python?",
-        "Qual a diferença entre lista e tupla em Python?",
+    "mestre": [
+        "Rodada 1. Escreva UMA pergunta curta e pessoal para os jogadores.",
+        "O jogador Azul foi exilado. Comente em UMA frase curta.",
+        "Rodada 2. Escreva UMA pergunta curta sobre lembranças de infância.",
+        "A votação empatou. Narre isso em UMA frase curta.",
     ],
 }
 
@@ -51,7 +52,7 @@ def pct(values: list[float], p: float) -> float | None:
 
 
 async def run_level(url: str, domain: str, clients: int, requests: int, max_tokens: int | None):
-    prompts = PROMPTS.get(domain, PROMPTS["redes"])
+    prompts = PROMPTS.get(domain, PROMPTS["impostor"])
     results: list[tuple[int, int, ClientResult]] = []
 
     async with httpx.AsyncClient(
@@ -61,7 +62,8 @@ async def run_level(url: str, domain: str, clients: int, requests: int, max_toke
 
         async def worker(cid: int):
             for i in range(requests):
-                body = {"domain": domain, "prompt": prompts[(cid + i) % len(prompts)]}
+                body = {"domain": domain, "prompt": prompts[(cid + i) % len(prompts)],
+                        "variables": {"alias": "Laranja", "others": "Azul, Verde"}}
                 if max_tokens:
                     body["max_tokens"] = max_tokens
                 results.append((cid, i, await ask(client, url, body)))
@@ -75,7 +77,7 @@ async def run_level(url: str, domain: str, clients: int, requests: int, max_toke
 async def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("-u", "--url", default=os.environ.get("AGORA_URL", "http://localhost:8000"))
-    p.add_argument("-d", "--domain", default="redes")
+    p.add_argument("-d", "--domain", default="impostor")
     p.add_argument("-c", "--clients", type=int, nargs="+", default=[1, 2, 4])
     p.add_argument("-r", "--requests", type=int, default=2, help="perguntas por cliente")
     p.add_argument("--repeat", type=int, default=1, help="repetições de cada nível")

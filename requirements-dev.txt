@@ -1,3 +1,4 @@
 -r gateway/requirements.txt
 pytest>=8
 anyio>=4
+websockets>=12

@@ -12,15 +12,20 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import random
 import time
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+# Palavras de "bate-papo" (o fake também serve para jogar o Jogo da Imitação sem LLM).
 WORDS = (
-    "O protocolo TCP garante entrega confiável e ordenada usando números de sequência, "
-    "confirmações e retransmissões, enquanto o controle de congestionamento ajusta a janela "
-    "de envio conforme a rede responde ."
+    "kkk sei la mano acho que eu tava dormindo ontem nessa hora . "
+    "o azul ta muito quieto pra mim ein , suspeito demais . "
+    "eu comeria pizza todo dia fácil , de calabresa . "
+    "tô no ônibus agora indo pra ufes e a internet tá horrível . "
+    "nada a ver isso , eu sou humano até demais . "
+    "quem falou primeiro foi o vermelho , não fui eu ."
 ).split()
 
 
@@ -29,7 +34,7 @@ def create_fake_app(
     token_ms: float = 10.0,
     prefill_ms: float = 50.0,
     parallel: int = 1,
-    models: tuple[str, ...] = ("qwen2.5:0.5b", "qwen2.5-coder:0.5b"),
+    models: tuple[str, ...] = ("qwen2.5:0.5b", "qwen2.5:1.5b", "qwen2.5-coder:0.5b"),
 ) -> FastAPI:
     app = FastAPI(title="Ollama falso")
     slots = asyncio.Semaphore(parallel)  # como o OLLAMA_NUM_PARALLEL
@@ -46,6 +51,8 @@ def create_fake_app(
             return JSONResponse({"error": f"model '{model}' not found"}, status_code=404)
         n = int(body.get("options", {}).get("num_predict") or tokens)
 
+        start = random.randrange(len(WORDS))
+
         async def gen():
             async with slots:
                 t0 = time.perf_counter_ns()
@@ -53,7 +60,7 @@ def create_fake_app(
                 t1 = time.perf_counter_ns()
                 for i in range(n):
                     await asyncio.sleep(token_ms / 1000)
-                    word = WORDS[i % len(WORDS)]
+                    word = WORDS[(start + i) % len(WORDS)]
                     msg = {"model": model, "message": {"role": "assistant", "content": word + " "}, "done": False}
                     yield json.dumps(msg, ensure_ascii=False) + "\n"
                 t2 = time.perf_counter_ns()

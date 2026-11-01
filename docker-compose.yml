@@ -1,9 +1,11 @@
-# Ágora – M1: gateway + 2 nós de inferência Ollama (somente CPU).
-# Orçamento de memória (padrão): 2 × 3 GB (nós) + 512 MB (gateway) ≈ 6,5 GB,
+# Ágora – Jogo da Imitação: gateway + 2 nós de inferência Ollama (somente CPU).
+#   node-impostor → domínio "impostor" (a IA que joga disfarçada de humano)
+#   node-mestre   → domínio "mestre"   (o narrador da partida)
+# Orçamento de memória (padrão): 4 GB (impostor) + 3 GB (mestre) + 512 MB (gateway) ≈ 7,5 GB,
 # abaixo dos 8 GB combinados. Ajuste no .env (veja .env.example).
 #
 #   docker compose up -d --build      # sobe tudo e baixa os modelos
-#   docker compose logs -f gateway
+#   docker compose logs -f gateway    # depois abra http://localhost:8000
 
 name: agora
 
@@ -24,17 +26,20 @@ x-ollama-node: &ollama-node
     retries: 30
 
 services:
-  node-redes:
+  node-impostor:
     <<: *ollama-node
+    # A IA impostora é quem mais precisa de CPU (o modelo é maior e ela fala mais).
+    cpus: ${IMPOSTOR_CPUS:-4}
+    mem_limit: ${IMPOSTOR_MEM_LIMIT:-4g}
     volumes:
-      - ollama-redes:/root/.ollama
+      - ollama-impostor:/root/.ollama
     ports:
       - "21434:11434"   # acesso direto ao nó, só para depuração
 
-  node-prog:
+  node-mestre:
     <<: *ollama-node
     volumes:
-      - ollama-prog:/root/.ollama
+      - ollama-mestre:/root/.ollama
     ports:
       - "21435:11434"
 
@@ -42,13 +47,13 @@ services:
   pull-models:
     image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
     depends_on:
-      node-redes: {condition: service_healthy}
-      node-prog: {condition: service_healthy}
+      node-impostor: {condition: service_healthy}
+      node-mestre: {condition: service_healthy}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
-        OLLAMA_HOST=http://node-redes:11434 ollama pull ${MODEL_REDES:-qwen2.5:0.5b} &&
-        OLLAMA_HOST=http://node-prog:11434 ollama pull ${MODEL_PROG:-qwen2.5-coder:0.5b}
+        OLLAMA_HOST=http://node-impostor:11434 ollama pull ${MODEL_IMPOSTOR:-qwen2.5:3b} &&
+        OLLAMA_HOST=http://node-mestre:11434 ollama pull ${MODEL_MESTRE:-qwen2.5:0.5b}
     restart: "no"
 
   gateway:
@@ -58,9 +63,16 @@ services:
       pull-models: {condition: service_completed_successfully}
     environment:
       GATEWAY_CONFIG: /config/gateway.yaml
-      MODEL_REDES: ${MODEL_REDES:-qwen2.5:0.5b}
-      MODEL_PROG: ${MODEL_PROG:-qwen2.5-coder:0.5b}
+      MODEL_IMPOSTOR: ${MODEL_IMPOSTOR:-qwen2.5:3b}
+      MODEL_MESTRE: ${MODEL_MESTRE:-qwen2.5:0.5b}
       NODE_PARALLEL: ${NODE_PARALLEL:-2}
+      GAME_MIN_PLAYERS: ${GAME_MIN_PLAYERS:-3}
+      GAME_DISCUSSION_S: ${GAME_DISCUSSION_S:-150}
+      GAME_IMPOSTOR_DOMAIN: ${GAME_IMPOSTOR_DOMAIN:-impostor}
+      GAME_AI_PERSONA: ${GAME_AI_PERSONA:-}
+      # Chave da API do Claude (opcional: só para o domínio impostor-claude).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MODEL_CLAUDE: ${MODEL_CLAUDE:-claude-haiku-5-5}
     volumes:
       - ./config:/config:ro
       - ./logs:/app/logs
@@ -69,5 +81,5 @@ services:
     mem_limit: 512m
 
 volumes:
-  ollama-redes:
-  ollama-prog:
+  ollama-impostor:
+  ollama-mestre:
