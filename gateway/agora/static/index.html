@@ -426,7 +426,8 @@ refreshRooms(); setInterval(refreshRooms, 4000);
     for (const [name, d] of Object.entries(doms)) {
       if (!d.impostor) continue;
       const up = health.nodes[d.node] && health.nodes[d.node].up;
-      const o = el("option", null, `${d.kind === "anthropic" ? "Claude (API)" : "Modelo local"} · ${d.model}${up ? "" : " · indisponível"}`);
+      const where = d.kind === "ollama" ? "Local" : d.kind === "anthropic" ? "Claude, na nuvem" : `${d.node.replace(/^node-/, "")}, na nuvem`;
+      const o = el("option", null, `${where}: ${d.model}${up ? "" : " (indisponível)"}`);
       o.value = name; o.disabled = !up; sel.append(o);
     }
   } catch {}

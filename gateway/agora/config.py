@@ -30,8 +30,10 @@ class NodeConfig(BaseModel):
 
     url: str
     # "ollama" (local, pesos abertos) ou "anthropic" (API do Claude, na nuvem).
-    kind: Literal["ollama", "anthropic"] = "ollama"
-    # Só para kind=anthropic: variável de ambiente com a chave da API.
+    # "ollama" (local, pesos abertos), "anthropic" (API do Claude) ou "openai" (qualquer API
+    # compatível com a da OpenAI: Groq, OpenRouter, Cerebras, LM Studio...).
+    kind: Literal["ollama", "anthropic", "openai"] = "ollama"
+    # Para os nós remotos: variável de ambiente com a chave da API.
     api_key_env: str = "ANTHROPIC_API_KEY"
     # Requisições atendidas ao mesmo tempo pelo nó. Deve ser igual ao
     # OLLAMA_NUM_PARALLEL do nó, para que a fila "de verdade" seja a do gateway.
@@ -55,6 +57,8 @@ class GameConfig(BaseModel):
 
     # Domínio que joga disfarçado de humano e domínio do Mestre (narrador).
     impostor_domain: str = "impostor"
+    # Se o domínio da IA for remoto e falhar, a fala é refeita neste (local).
+    impostor_fallback_domain: str | None = "impostor"
     master_domain: str | None = "mestre"
     # Participantes, contando a(s) IA(s). Mínimo 3 = 2 humanos + 1 IA.
     min_players: int = Field(default=3, ge=2)

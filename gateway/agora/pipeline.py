@@ -26,7 +26,7 @@ import httpx
 from .config import DomainConfig, GatewayConfig, NodeConfig
 from .metrics import MetricsStore, RequestRecord
 from .node_queue import NodeQueue, QueueFull, Ticket
-from . import anthropic
+from . import anthropic, openai_compat
 from .ollama import NodeError, stream_chat
 
 __all__ = ["Gateway", "ChatJob", "UnknownDomain", "QueueFull", "Completion"]
@@ -160,7 +160,12 @@ class Gateway:
             rec.queue_wait_ms = job.ms_since_start()
 
             final: dict[str, Any] = {}
-            if job.node.kind == "anthropic":
+            if job.node.kind == "openai":
+                chunks = openai_compat.stream_chat(
+                    self.http, job.node.url, job.domain.model, job.messages, job.options,
+                    job.node.api_key_env,
+                )
+            elif job.node.kind == "anthropic":
                 chunks = anthropic.stream_chat(
                     self.http, job.node.url, job.domain.model, job.messages, job.options,
                     job.node.api_key_env,

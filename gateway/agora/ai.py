@@ -215,12 +215,13 @@ class ImpostorAI:
         budget = word_budget(room_profile(self.room.chat, me), self.persona.style)
         messages = self.build_messages(trigger)
         # Para assim que o modelo começar a "escrever pelos outros" ("Azul: ...").
-        dom = self.gateway.cfg.domains.get(self.cfg.impostor_domain)
+        domain = self.cfg.impostor_domain
+        dom = self.gateway.cfg.domains.get(domain)
         stops = list((dom.options.get("stop") if dom else None) or [])
         stops += [f"{a}:" for a in aliases if f"{a}:" not in stops]
         for attempt in range(2):
             comp = await self.gateway.complete(
-                self.cfg.impostor_domain, messages, variables=self.variables(),
+                domain, messages, variables=self.variables(),
                 source="impostor", room=self.room.code, timeout_s=90,
                 extra_options={"stop": stops, **({"temperature": 1.05, "seed": self.rng.randrange(10**6)}
                                                  if attempt else {})},
@@ -233,6 +234,14 @@ class ImpostorAI:
                              "e2e_ms": comp.record.e2e_ms, "tokens": comp.record.output_tokens,
                              "prompt_tokens": comp.record.prompt_tokens})
             if not comp.ok:
+                # Failover: se a API remota falhou (limite de taxa, sem internet...),
+                # tenta de novo no modelo local antes de apelar para uma frase pronta.
+                fb = self.cfg.impostor_fallback_domain
+                if attempt == 0 and fb and fb != domain and fb in self.gateway.cfg.domains:
+                    log.warning("IA: %s falhou (%s); usando %s", domain, comp.error, fb)
+                    stat["failover"] = {"from": domain, "to": fb, "error": comp.error}
+                    domain = fb
+                    continue
                 break
             texts = humanize(comp.text, aliases, self.persona.style, self.rng,
                              budget=budget, max_chars=self.cfg.max_message_chars)

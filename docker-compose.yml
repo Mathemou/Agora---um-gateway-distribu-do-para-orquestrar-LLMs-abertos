@@ -70,6 +70,10 @@ services:
       GAME_DISCUSSION_S: ${GAME_DISCUSSION_S:-150}
       GAME_IMPOSTOR_DOMAIN: ${GAME_IMPOSTOR_DOMAIN:-impostor}
       GAME_AI_PERSONA: ${GAME_AI_PERSONA:-}
+      # Groq (opcional): modelos abertos grandes na nuvem, domínios impostor-groq e mestre-groq.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      MODEL_GROQ: ${MODEL_GROQ:-qwen/qwen3.8-27b}
+      GAME_MASTER_DOMAIN: ${GAME_MASTER_DOMAIN:-mestre}
       # Chave da API do Claude (opcional: só para o domínio impostor-claude).
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       MODEL_CLAUDE: ${MODEL_CLAUDE:-claude-haiku-5-5}

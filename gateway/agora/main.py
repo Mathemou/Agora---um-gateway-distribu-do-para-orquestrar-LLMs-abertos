@@ -29,7 +29,7 @@ from . import __version__
 from .config import GatewayConfig, load_config
 from .game import GameError, RoomManager
 from .personas import ARCHETYPES
-from . import anthropic
+from . import anthropic, openai_compat
 from .ollama import NodeError, list_models
 from .pipeline import Gateway, QueueFull, UnknownDomain
 
@@ -128,7 +128,9 @@ def create_app(
         for name, node in cfg.nodes.items():
             wanted = sorted({d.model for d in cfg.domains.values() if d.node == name})
             try:
-                if node.kind == "anthropic":
+                if node.kind == "openai":
+                    available = await openai_compat.list_models(gateway.http, node.url, node.api_key_env)
+                elif node.kind == "anthropic":
                     available = await anthropic.list_models(gateway.http, node.url, node.api_key_env)
                 else:
                     available = await list_models(gateway.http, node.url)

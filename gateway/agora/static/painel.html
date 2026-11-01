@@ -197,7 +197,7 @@ function renderNodes() {
     const c = el("div", "card node");
     const h = el("h3"); h.append(el("span", null, n.node));
     const hn = data.health && data.health.nodes[n.node];
-    if (hn) h.append(el("span", "kind", hn.kind === "anthropic" ? "nuvem" : "local"));
+    if (hn) h.append(el("span", "kind", hn.kind === "ollama" ? "local" : "nuvem"));
     c.append(h);
     if (hn) {
       const st = el("span", "status " + (hn.up && !(hn.missing || []).length ? "ok" : "bad"),

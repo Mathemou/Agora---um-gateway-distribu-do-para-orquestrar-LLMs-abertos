@@ -114,10 +114,28 @@ O prompt de sistema fica idêntico durante a partida e a conversa só cresce no 
 | Domínio | Nó | Modelo | Prompt de sistema / parâmetros |
 | --- | --- | --- | --- |
 | `impostor` | `node-impostor` | `qwen2.5:3b` | Jogador disfarçado de humano, com persona e exemplos (`{alias}`, `{others}`, `{persona}` preenchidos pelo jogo) · `temperature 0.85`, `top_p 0.9`, `top_k 40`, `repeat_penalty 1.1`, `num_predict 32`, para na quebra de linha |
+| `impostor-groq` (opcional) | `node-groq` (Groq, na nuvem) | `qwen/qwen3.8-27b` | Mesmo papel e prompt do `impostor` · `temperature 0.9`, `max_tokens 48`, sem raciocínio |
 | `impostor-claude` (opcional) | `node-claude` (API do Claude, na nuvem) | `claude-haiku-5-5` | Mesmo papel do `impostor`, com prompt ajustado · `temperature 1.0`, `max_tokens 60` |
 | `mestre` | `node-mestre` | `qwen2.5:0.5b` | Mediador da roda, frases curtas e leves, nunca revela a IA · `temperature 0.7`, `num_predict 60` |
 
 Os modelos e as regras do jogo (tempo de discussão, rodadas, número de IAs, velocidade de "digitação") estão em [`config/gateway.yaml`](config/gateway.yaml) e no `.env`.
+
+### A IA pelo Groq (opcional, gratuito)
+
+O modelo local de 3B parâmetros em CPU tem limite de inteligência. O gateway também fala com **qualquer API compatível com a da OpenAI** (`kind: openai` em `config/gateway.yaml`; cliente em `gateway/agora/openai_compat.py`), e já vem configurado para o **Groq**, que roda modelos **abertos** grandes de graça (com limite de taxa):
+
+| Domínio | Modelo | Observação |
+| --- | --- | --- |
+| `impostor-groq` | `qwen/qwen3.8-27b` (padrão) ou `openai/gpt-oss-120b` (`MODEL_GROQ`) | mesmo prompt e mesma roda de personalidades da IA local; o Qwen responde direto (`reasoning_effort: none`), o gpt-oss é mais esperto mas sempre "pensa" antes (mais lento) |
+| `mestre-groq` | o mesmo de `MODEL_GROQ` | use com `GAME_MASTER_DOMAIN=mestre-groq` |
+
+1. Crie a chave em https://console.groq.com/keys e coloque no `.env`: `GROQ_API_KEY=gsk_...` (o `.env` está no `.gitignore`).
+2. `GAME_IMPOSTOR_DOMAIN=impostor-groq` deixa o Groq como padrão; ou escolha por sala em **Opções da sala → Quem joga como IA**.
+3. `docker compose up -d --build gateway`.
+
+**Failover:** se o Groq falhar (sem internet, limite de taxa `429`), a fala é refeita no modelo **local** (`impostor_fallback_domain`) e o log da partida registra `failover`. Esse é o embrião do incremento de failover do M2.
+
+**Limites do plano gratuito** (por modelo, out/2026): 30 requisições/min, 1.000/dia, 8 mil tokens/min, 200 mil tokens/dia. Cada fala da IA usa ~1.000 tokens de prompt; uma partida cabe tranquila, mas várias salas ao mesmo tempo batem no limite de tokens por minuto. Ótimo material para o experimento: o painel mostra os erros e o failover para o local.
 
 ### A IA pelo Claude (opcional)
 
@@ -289,6 +307,7 @@ gateway/agora/
   node_queue.py   fila por nó com limite de concorrência (política plugável)
   ollama.py       cliente da API de streaming do Ollama
   anthropic.py    cliente da API do Claude (stream SSE → mesmo formato do Ollama)
+  openai_compat.py cliente de APIs compatíveis com a OpenAI: Groq, OpenRouter, Cerebras, LM Studio
   metrics.py      TTFT, tokens/s, e2e, vazão e log JSONL (por origem)
   config.py       leitura do YAML (domínios, nós e regras do jogo)
   fake_node.py    nó falso compatível com o Ollama
@@ -328,6 +347,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ a fazer
 - ✅ **1.11 IA reforçada**: persona por partida, exemplos no prompt, conversa em turnos, humanizador, filtros de eco/entrega, reações rápidas, geração em paralelo com a "leitura", laboratório de cenários.
 - ✅ **1.11d Roda de personalidades**: 8 personagens sorteados (ou escolhidos) por partida, cada um com voz, exemplos e jeito de digitar.
 - ⬜ **1.11c Calibrar com o modelo real**: rodar `lab_impostor.py` com 3b e 7b, jogar partidas e ler `logs/games.jsonl` (campos `raw`, `text`, `overrun_ms`).
+- ✅ **1.11e Groq (gratuito) como nó remoto**: modelos abertos grandes na nuvem via API compatível com a OpenAI, com failover para o modelo local.
 - ✅ **1.11b Nó remoto opcional (API do Claude)** como comparação com o modelo aberto local; escolha por sala.
 - ✅ **1.12 Roteiro da demo M1** (5 min): [`docs/roteiro-demo-m1.md`](docs/roteiro-demo-m1.md), com checklist, falas, plano B e perguntas prováveis.
 - ✅ **1.13 Painel ao vivo** em **http://localhost:8000/painel**: vagas e fila de cada nó, TTFT/tokens/s da IA, vazão, "onde vai o tempo" de cada resposta e linha do tempo das requisições (escondida por padrão, porque durante a partida ela entrega a IA).
