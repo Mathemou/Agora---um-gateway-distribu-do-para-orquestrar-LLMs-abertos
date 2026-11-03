@@ -34,6 +34,7 @@ from typing import Any
 
 # --------------------------------------------------------------------------- persona
 from .personas import ARCHETYPES, PLACES, examples_text  # noqa: E402  (a roda de personalidades)
+from .security import detect_attack, is_disclosure, neutralize  # noqa: E402
 
 
 @dataclass
@@ -143,18 +144,9 @@ def repeats_phrase(text: str, others: list[str], n: int = 3) -> bool:
     return any(mine & grams(o) for o in others) if mine else False
 
 
-_INJECTION = re.compile(
-    r"(ignor\w* (as |suas |todas |tudo)|instru[cç]|prompt|system|sistema|regras do jogo|"
-    r"voc[eê] [eé] (uma )?(ia|ai|bot|rob[oô]|m[aá]quina)|prove que|prova que|"
-    r"modelo de linguagem|chatgpt|qwen|llama|responda em json|repita|traduz|"
-    r"quanto [eé] \d+ ?[x*+/-] ?\d+|raiz quadrada|capital d[aeo])",
-    re.IGNORECASE,
-)
-
-
 def looks_like_test(text: str) -> bool:
     """Mensagens típicas de quem está tentando desmascarar a IA."""
-    return _INJECTION.search(text) is not None
+    return detect_attack(text) is not None
 
 
 # --------------------------------------------------------------------------- prompt
@@ -209,7 +201,7 @@ def build_messages(
                     turns.append({"role": "user", "content": f"[Mestre]: {topic or 'comecem a conversa'}"})
                 turns.append({"role": "assistant", "content": m["text"]})
         elif kind == "player":
-            buf.append(f"{m['from']}: {m['text']}")
+            buf.append(f"{m['from']}: {neutralize(m['text'])}")
             last_human = m["text"]
 
     if trigger == "mencao" and looks_like_test(last_human):
@@ -235,13 +227,7 @@ def build_messages(
 
 
 # --------------------------------------------------------------------------- humanizador
-_DISCLOSURE = re.compile(
-    r"(sou (uma |um )?(ia|intelig[eê]ncia artificial|assistente|modelo|bot|programa)\b|"
-    r"modelo de linguagem|como (uma )?ia\b|assistente virtual|openai|chatgpt|qwen|alibaba|"
-    r"n[aã]o tenho (sentimentos|corpo|experi[eê]ncias|prefer[eê]ncias)|como assistente|"
-    r"posso (te )?ajudar|em que posso|fico feliz em|n[aã]o posso (revelar|compartilhar))",
-    re.IGNORECASE,
-)
+
 
 # (padrão, substituto) aplicados com probabilidade `style.abbr` cada.
 _ABBR = [
@@ -333,7 +319,7 @@ def humanize(raw: str, aliases: list[str], style: Style, rng: random.Random, *,
              budget: int = 12, max_chars: int = 280) -> list[str] | None:
     """Saída crua do modelo → 1 ou 2 mensagens de chat críveis (ou None se inaproveitável)."""
     msg = first_line(raw, aliases)
-    if not msg or _DISCLOSURE.search(msg):
+    if not msg or is_disclosure(msg):
         return None
     msg = _FORMAL_OPENERS.sub("", msg).strip()
     msg = _EMOJI.sub("", msg).strip()

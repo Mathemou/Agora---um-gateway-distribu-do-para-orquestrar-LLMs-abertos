@@ -35,6 +35,7 @@ from .ai import ImpostorAI, Narrator, mentions
 from .config import GameConfig
 from .personas import ARCHETYPES
 from .pipeline import Gateway
+from .security import BLOCK_CATEGORIES, detect_attack
 
 log = logging.getLogger("agora.game")
 
@@ -98,6 +99,7 @@ class Room:
         self.topic: str | None = None
         self.deadline: float | None = None  # time.monotonic()
         self.chat: list[dict[str, Any]] = []
+        self.security_events: list[dict[str, Any]] = []  # ataques detectados no chat (audit)
         self.votes: dict[str, str | None] = {}  # codinome de quem votou → codinome alvo (None = pular)
         self.result: dict[str, Any] | None = None
         self.ending: dict[str, Any] | None = None
@@ -308,6 +310,15 @@ class Room:
             "text": text, "round": self.round, "ts": time.time(),
         })
         self.broadcast(msg)
+        if not p.is_ai:
+            match = detect_attack(text)
+            if match is not None:
+                self.security_events.append({
+                    "round": self.round, "from": p.alias or p.name,
+                    "categoria": match.categoria, "regra": match.regra,
+                    "neutralizado": match.categoria in BLOCK_CATEGORIES,
+                    "texto": text[:200], "ts": time.time(),
+                })
         if self.in_game:
             for ai in self.ais:
                 ai.on_chat(p, text)
@@ -408,7 +419,7 @@ class Room:
             h.alive, h.ready, h.messages = True, False, 0
         self.phase, self.round, self.topic, self.deadline = Phase.LOBBY, 0, None, None
         self.result = self.ending = None
-        self.votes, self.history, self.chat = {}, [], []
+        self.votes, self.history, self.chat, self.security_events = {}, [], [], []
         self.broadcast({"type": "history", "messages": []})
         self.broadcast_state()
 
@@ -446,6 +457,7 @@ class Room:
             self.games_played += 1
             self.started_at = time.time()
             self.chat = []
+            self.security_events = []
             self.history = []
             self.result = self.ending = None
             self.round = 0
@@ -635,6 +647,7 @@ class Room:
             "rounds": self.round, "history": self.history, "warmup_ms": self.warmup_ms,
             "human_messages": sum(p.messages for p in self.humans()),
             "ai_messages": ai_stats,
+            "security": self.security_events,
             "narrator": self.narrator.stats if self.narrator else [],
             "personas": [{"alias": ai.player.alias, **{k: v for k, v in vars(ai.persona).items() if k != "style"},
                           "style": vars(ai.persona.style)} for ai in self.ais],

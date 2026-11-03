@@ -134,7 +134,11 @@ def create_app(
                     available = await anthropic.list_models(gateway.http, node.url, node.api_key_env)
                 else:
                     available = await list_models(gateway.http, node.url)
-                missing = [m for m in wanted if m not in available and f"{m}:latest" not in available]
+                if node.kind == "ollama":
+                    missing = [m for m in wanted if m not in available and f"{m}:latest" not in available]
+                else:
+                    # Nó remoto (nuvem) não tem modelo a "baixar"; /models pode nem existir.
+                    missing = []
                 nodes[name] = {"up": True, "kind": node.kind, "models": available, "missing": missing}
             except NodeError as exc:
                 nodes[name] = {"up": False, "kind": node.kind, "error": str(exc)}

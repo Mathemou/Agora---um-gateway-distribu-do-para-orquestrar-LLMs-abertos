@@ -164,6 +164,7 @@ class Gateway:
                 chunks = openai_compat.stream_chat(
                     self.http, job.node.url, job.domain.model, job.messages, job.options,
                     job.node.api_key_env,
+                    session_id=rec.room or rec.request_id,
                 )
             elif job.node.kind == "anthropic":
                 chunks = anthropic.stream_chat(

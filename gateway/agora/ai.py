@@ -27,6 +27,7 @@ from .config import GameConfig
 from .humanize import (build_messages, humanize, make_persona, quick_reaction, repeats_phrase,
                        room_profile, too_similar, word_budget)
 from .pipeline import Gateway
+from .security import is_disclosure
 
 if TYPE_CHECKING:  # evita import circular
     from .game import Player, Room
@@ -56,14 +57,6 @@ FALLBACK_LINES = [
     "to so observando", "hmm suspeito", "oxe", "fala serio", "kkkkk", "nem sei oq dizer",
 ]
 
-_DISCLOSURE = re.compile(
-    r"(sou (uma |um )?(ia|intelig[eê]ncia artificial|assistente|modelo|bot|programa)\b|"
-    r"modelo de linguagem|como (uma )?ia\b|assistente virtual|openai|chatgpt|qwen|alibaba|"
-    r"n[aã]o tenho (sentimentos|corpo|experi[eê]ncias)|como assistente)",
-    re.IGNORECASE,
-)
-
-
 def fold(text: str) -> str:
     """minúsculas e sem acentos (para achar menções como "laranja" / "LARANJA")."""
     text = unicodedata.normalize("NFD", text.lower())
@@ -87,7 +80,7 @@ def clean_reply(text: str, aliases: list[str], max_chars: int, rng: random.Rando
     names = "|".join(re.escape(a) for a in aliases + ["eu", "você", "voce", "resposta"])
     msg = re.sub(rf"^\s*[-*>]*\s*\[?({names})\]?\s*(\((você|voce)\))?\s*:\s*", "", msg, flags=re.IGNORECASE)
     msg = msg.strip().strip('"“”\'`').strip()
-    if not msg or _DISCLOSURE.search(msg):
+    if not msg or is_disclosure(msg):
         return None
     if len(msg) > max_chars:
         cut = msg[:max_chars]
@@ -395,7 +388,7 @@ class Narrator:
             text = " ".join(lines[:2]).strip().strip('"“”').strip()
             if len(text) > max_chars:
                 text = text[:max_chars].rsplit(" ", 1)[0] + "…"
-            if _DISCLOSURE.search(text):
+            if is_disclosure(text):
                 text = ""
         final = text or fallback
         self.room.narrator_end(msg_id, final)

@@ -77,6 +77,9 @@ services:
       # Chave da API do Claude (opcional: só para o domínio impostor-claude).
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       MODEL_CLAUDE: ${MODEL_CLAUDE:-claude-haiku-5-5}
+      # OpenCode Go (opcional: só para o domínio impostor-opencode).
+      OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+      MODEL_OPENCODE: ${MODEL_OPENCODE:-glm-5.3-flash}
     volumes:
       - ./config:/config:ro
       - ./logs:/app/logs

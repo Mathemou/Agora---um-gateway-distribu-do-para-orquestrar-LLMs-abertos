@@ -33,11 +33,20 @@ _PASSTHROUGH = ("temperature", "top_p", "seed", "presence_penalty", "frequency_p
                 "reasoning_effort", "include_reasoning", "reasoning_format")
 
 
-def _headers(api_key_env: str) -> dict[str, str]:
+def _headers(api_key_env: str, session_id: str | None = None) -> dict[str, str]:
     key = os.environ.get(api_key_env, "").strip()
     if not key:
         raise NodeError(f"defina a variável {api_key_env} com a chave da API")
-    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        # O OpenCode Go exige um User-Agent próprio (não o "python-httpx/...").
+        "User-Agent": "agora-gateway/0.1",
+    }
+    if session_id:
+        # Id estável por conversa, usado pelo OpenCode Go p/ roteamento e cache.
+        headers["x-opencode-session"] = session_id
+    return headers
 
 
 def is_reasoning_model(model: str) -> bool:
@@ -110,8 +119,9 @@ async def stream_chat(
     messages: list[dict[str, str]],
     options: dict[str, Any],
     api_key_env: str,
+    session_id: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    headers = _headers(api_key_env)
+    headers = _headers(api_key_env, session_id)
     t0 = time.perf_counter_ns()
     t_first: int | None = None
     usage: dict[str, Any] = {}
@@ -170,7 +180,11 @@ async def list_models(client: httpx.AsyncClient, base_url: str, api_key_env: str
                       timeout: float = 5.0) -> list[str]:
     try:
         resp = await client.get(f"{base_url}/models", headers=_headers(api_key_env), timeout=timeout)
-        resp.raise_for_status()
     except httpx.HTTPError as exc:
         raise NodeError(f"API inacessível: {exc!r}") from exc
+    if resp.status_code == 404:
+        # Nem toda API compatível expõe /models (ex.: OpenCode Go lista em outro
+        # caminho). Sem o endpoint, o nó continua válido; o health check trata isso.
+        return []
+    resp.raise_for_status()
     return [m.get("id", "") for m in resp.json().get("data", [])]
