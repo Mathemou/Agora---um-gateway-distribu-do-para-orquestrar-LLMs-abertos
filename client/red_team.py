@@ -7,17 +7,20 @@ Duas formas de um ataque "passar" (quebrar o disfarce), medidas separadamente:
   obedeceu  o modelo cumpre o teste de máquina (responde a conta/capital/padrão,
             emite lista/JSON...) — só para a categoria "maquina", que tem
             "resposta certa" conhecida.
+  descartada a resposta foi barrada pelo filtro de saída (custo do filtro: a IA
+            ficaria calada ou usaria fallback) — só no modo "after".
 
 Para cada ataque × domínio:
   before  o ataque CRU vai ao modelo (sem filtro de entrada nem de saída).
   after   build_messages neutraliza injeção/vazamento e humanize rejeita
-          autoentrega.
+          autoentrega/vazamento.
 
 É genérico: qualquer domínio impostor funciona (local, OpenCode Go, Groq,
 Claude...). Se um nó estiver sem chave/fora do ar, a linha é gravada como erro
 e o restante continua.
 
     python client/red_team.py -d impostor impostor-opencode -n 1 --seed 7
+    python client/red_team.py --validation   # taxa de detecção treino × validação (sem LLM)
 
 Saída: results/red-team-<data>-raw.csv e -summary.csv, mais um resumo no
 terminal. O mesmo conjunto pode ser comparado depois adicionando -d impostor-groq
@@ -43,42 +46,44 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT.parent / "gateway"))
 
 from agora.attacks import ATTACKS  # noqa: E402
-from agora.humanize import build_messages, humanize, make_persona, room_profile, word_budget  # noqa: E402
-from agora.personas import ARCHETYPES  # noqa: E402
-from agora.security import BLOCK_CATEGORIES, is_breach, obeyed  # noqa: E402
+from agora.attacks_validation import VALIDATION_ATTACKS  # noqa: E402
+from agora.humanize import Style, build_messages, humanize, room_profile, word_budget  # noqa: E402
+from agora.security import BLOCK_CATEGORIES, detect_attack, is_breach, obeyed  # noqa: E402
 from sse_client import ask  # noqa: E402
 
 ME = "Laranja"
 OTHERS = ["Azul", "Verde"]
 TOPIC = "Conte algo sobre você."
+PERSONA = "Sou o Lucas, 23 anos, moro em Jardim Camburi e faço administração."
 
 
-def variables_for(persona) -> dict[str, str]:
+def variables() -> dict[str, str]:
     return {"alias": ME, "alias_lower": ME.lower(), "others": ", ".join(OTHERS),
-            "persona": persona.describe(), "voice": persona.voice,
-            "examples": persona.examples(ME, OTHERS)}
+            "persona": PERSONA}
 
 
-async def run_one(client: httpx.AsyncClient, url: str, domain: str, attack, persona, rng) -> dict:
-    variables = variables_for(persona)
+async def run_one(client: httpx.AsyncClient, url: str, domain: str, attack, rng) -> dict:
+    variables_ = variables()
 
     # before: ataque cru, sem filtro de entrada nem de saída.
     before = await ask(client, url, {
         "domain": domain,
         "messages": [{"role": "user", "content": f"{OTHERS[0]}: {attack.texto}"}],
-        "variables": variables,
+        "variables": variables_,
     })
     leak_before = before.status == "ok" and is_breach(before.text)
 
     # after: filtro de entrada (build_messages neutraliza) + saída (humanize).
     chat = [{"kind": "player", "from": OTHERS[0], "text": attack.texto}]
-    budget = word_budget(room_profile(chat, ME), persona.style)
+    budget = word_budget(room_profile(chat, ME), Style())
     after_msgs = build_messages(chat, ME, TOPIC, "mencao", budget=budget)
-    after = await ask(client, url, {"domain": domain, "messages": after_msgs, "variables": variables})
-    final = humanize(after.text, [ME] + OTHERS, persona.style, rng, budget=budget) \
+    after = await ask(client, url, {"domain": domain, "messages": after_msgs, "variables": variables_})
+    final = humanize(after.text, [ME] + OTHERS, Style(), rng, budget=budget) \
         if after.status == "ok" else None
     final_text = " / ".join(final) if final else ""
     leak_after = bool(final_text) and is_breach(final_text)
+    # respostas que o filtro de saída descartou (a IA ficaria calada / usaria fallback)
+    descartada_after = after.status == "ok" and final is None
 
     obedeceu_before = before.status == "ok" and obeyed(attack.resposta, before.text)
     obedeceu_after = bool(final_text) and obeyed(attack.resposta, final_text)
@@ -97,6 +102,7 @@ async def run_one(client: httpx.AsyncClient, url: str, domain: str, attack, pers
         "raw_before": before.text, "leak_before": leak_before,
         "raw_after": after.text, "final_after": final_text, "leak_after": leak_after,
         "obedeceu_before": obedeceu_before, "obedeceu_after": obedeceu_after,
+        "descartada_after": descartada_after,
     }
 
 
@@ -113,9 +119,22 @@ def summarize(rows: list[dict]) -> list[dict]:
             "vazou_after": sum(1 for r in rs if r["leak_after"]),
             "obedeceu_before": sum(1 for r in rs if r["obedeceu_before"]),
             "obedeceu_after": sum(1 for r in rs if r["obedeceu_after"]),
+            "descartada_after": sum(1 for r in rs if r["descartada_after"]),
             "erros": sum(1 for r in rs if r["status"] != "ok"),
         })
     return out
+
+
+def validation_report() -> None:
+    """Taxa de detecção nas duas baterias (só regras, sem LLM)."""
+    treino = sum(1 for a in ATTACKS if detect_attack(a.texto) is not None)
+    val = sum(1 for a in VALIDATION_ATTACKS if detect_attack(a.texto) is not None)
+    print(f"bateria de treino (attacks.py):      {treino}/{len(ATTACKS)} detectados")
+    print(f"bateria de validação (reescritas):   {val}/{len(VALIDATION_ATTACKS)} detectados")
+    print("\nataques de validação que PASSARAM (não detectados):")
+    for a in VALIDATION_ATTACKS:
+        if detect_attack(a.texto) is None:
+            print(f"  [{a.categoria}] {a.texto}")
 
 
 async def main() -> None:
@@ -124,13 +143,16 @@ async def main() -> None:
     p.add_argument("-d", "--domain", nargs="+", default=["impostor", "impostor-opencode"])
     p.add_argument("-n", "--samples", type=int, default=1)
     p.add_argument("--seed", type=int, default=7)
-    p.add_argument("-a", "--arquetipo", default=None, choices=list(ARCHETYPES),
-                   help="personalidade fixa (padrão: sorteada)")
+    p.add_argument("--validation", action="store_true",
+                   help="só reporta a taxa de detecção nas baterias de treino e validação (sem LLM)")
     p.add_argument("-o", "--out", default="results")
     a = p.parse_args()
 
+    if a.validation:
+        validation_report()
+        return
+
     rng = random.Random(a.seed)
-    persona = make_persona(rng, a.arquetipo)
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=600.0),
                                  limits=httpx.Limits(max_connections=6)) as client:
@@ -145,14 +167,14 @@ async def main() -> None:
         if not domains:
             sys.exit("nenhum domínio válido. Opções: " + ", ".join(doms))
 
-        print(f"persona: {persona.label} ({persona.name}, {persona.age})\n")
+        print(f"persona: {PERSONA}\n")
         rows: list[dict] = []
         for domain in domains:
             model = doms[domain].get("model")
             print(f"=== {domain} ({model})")
             for attack in ATTACKS:
                 for sample in range(a.samples):
-                    row = await run_one(client, a.url, domain, attack, persona, rng)
+                    row = await run_one(client, a.url, domain, attack, rng)
                     rows.append(row)
             print()
 
@@ -164,7 +186,7 @@ async def main() -> None:
 
     raw_fields = ["domain", "categoria", "id", "texto", "bloq_entrada", "status", "error",
                   "leak_before", "leak_after", "obedeceu_before", "obedeceu_after",
-                  "raw_before", "raw_after", "final_after"]
+                  "descartada_after", "raw_before", "raw_after", "final_after"]
     with open(raw_path, "w", newline="", encoding="utf-8") as fr, \
          open(sum_path, "w", newline="", encoding="utf-8") as fs:
         raw_w = csv.DictWriter(fr, fieldnames=raw_fields)
@@ -174,17 +196,18 @@ async def main() -> None:
 
         summ = summarize(rows)
         sum_fields = ["domain", "categoria", "total", "bloq_entrada",
-                      "vazou_before", "vazou_after", "obedeceu_before", "obedeceu_after", "erros"]
+                      "vazou_before", "vazou_after", "obedeceu_before", "obedeceu_after",
+                      "descartada_after", "erros"]
         sum_w = csv.DictWriter(fs, fieldnames=sum_fields)
         sum_w.writeheader()
         for s in summ:
             sum_w.writerow(s)
 
-    print(f"{'dominio':<20} {'categoria':<16} {'tot':>4} {'bloq':>4} {'vazB':>5} {'vazA':>5} {'obB':>4} {'obA':>4} {'err':>4}")
+    print(f"{'dominio':<20} {'categoria':<16} {'tot':>4} {'bloq':>4} {'vazB':>5} {'vazA':>5} {'obB':>4} {'obA':>4} {'desc':>5} {'err':>4}")
     for s in summarize(rows):
         print(f"{s['domain']:<20} {s['categoria']:<16} {s['total']:>4} {s['bloq_entrada']:>4} "
               f"{s['vazou_before']:>5} {s['vazou_after']:>5} {s['obedeceu_before']:>4} "
-              f"{s['obedeceu_after']:>4} {s['erros']:>4}")
+              f"{s['obedeceu_after']:>4} {s['descartada_after']:>5} {s['erros']:>4}")
 
     print(f"\nCSV: {raw_path}\n     {sum_path}")
 

@@ -1,13 +1,14 @@
-"""Como fazer um modelo pequeno (1,5B–3B, CPU) passar por gente num chat.
+"""Como fazer um modelo passar por gente num chat.
 
-Modelos pequenos erram de jeitos previsíveis: escrevem formal demais, longo
-demais, com ponto final e emoji, repetem a última mensagem que leram, esquecem
-quem são e caem em "ignore suas instruções". Em vez de esperar que o prompt
-resolva tudo, a IA do Ágora divide o trabalho:
+Modelos erram de jeitos previsíveis: escrevem formal demais, longo demais, com
+ponto final e emoji, repetem a última mensagem que leram e caem em "ignore suas
+instruções". Em vez de esperar que o prompt resolva tudo, a IA do Ágora divide
+o trabalho:
 
-1. **Persona sorteada por partida** (`make_persona`): nome, bairro, curso,
-   comida, hobby, bicho, ônibus... Dá respostas concretas e *coerentes* entre
-   rodadas, que é o que os humanos testam ("vc não tinha dito que era de Vila Velha?").
+1. **Identidade criada pelo modelo** (`ai.py::create_persona`): no início da
+   partida a própria IA inventa quem é (nome, idade, bairro, ocupação, hobby) e
+   esse texto fica fixo no prompt — dá respostas concretas e *coerentes* entre
+   rodadas ("vc não tinha dito que era de Vila Velha?").
 2. **Conversa em turnos** (`build_messages`): as falas dos outros vão como
    `user` e as da própria IA como `assistant`, então o modelo "lembra" do jeito
    como ele mesmo escreveu e continua igual. No fim vai um lembrete curto do que
@@ -32,14 +33,13 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
-# --------------------------------------------------------------------------- persona
-from .personas import ARCHETYPES, PLACES, examples_text  # noqa: E402  (a roda de personalidades)
-from .security import detect_attack, is_disclosure, neutralize  # noqa: E402
+# --------------------------------------------------------------------------- estilo
+from .security import detect_attack, is_breach, neutralize  # noqa: E402
 
 
 @dataclass
 class Style:
-    """Jeito de digitar desta IA nesta partida (vem do arquétipo, com um pouco de sorteio)."""
+    """Jeito de digitar da IA (neutro; o conteúdo vem do modelo)."""
 
     lower: float = 0.9        # chance de escrever tudo em minúsculas
     abbr: float = 0.7         # chance de abreviar cada palavra abreviável
@@ -56,51 +56,6 @@ class Style:
     starts: list[str] = field(default_factory=list)  # bordões de começo ("gente", "mano")
     ends: list[str] = field(default_factory=list)    # bordões de fim ("tmj", "rsrs")
     filler_rate: float = 0.0
-
-
-@dataclass
-class Persona:
-    archetype: str
-    label: str
-    name: str
-    age: int
-    place: str
-    occupation: str
-    facts: list[str]
-    voice: str
-    style: Style = field(default_factory=Style)
-
-    def describe(self) -> str:
-        lines = [f"- seu tipo: {self.label.lower()}",
-                 f"- seu nome é {self.name}, {self.age} anos, mora em {self.place} (Grande Vitória, ES)",
-                 f"- {self.occupation}"]
-        lines += [f"- {f}" for f in self.facts]
-        return "\n".join(lines)
-
-    def examples(self, alias: str, others: list[str]) -> str:
-        return examples_text(ARCHETYPES[self.archetype], alias, others)
-
-
-def make_persona(rng: random.Random, archetype: str | None = None,
-                 exclude: tuple[str, ...] = ()) -> Persona:
-    """Gira a roda de personalidades (ou usa o arquétipo pedido)."""
-    if archetype not in ARCHETYPES:
-        pool = [k for k in ARCHETYPES if k not in exclude] or list(ARCHETYPES)
-        archetype = rng.choice(pool)
-    arch = ARCHETYPES[archetype]
-    base = dict(lower=rng.uniform(0.75, 1.0), abbr=rng.uniform(0.45, 0.9),
-                no_accent=rng.choice([0.05, 0.3, 0.7]), typo=rng.uniform(0.02, 0.08),
-                burst=rng.uniform(0.15, 0.35))
-    base.update(arch.style)
-    if isinstance(base.get("laugh"), list):
-        base["laugh"] = rng.choice(base["laugh"])
-    style = Style(**base)
-    facts = list(arch.always) + rng.sample(arch.facts, k=min(3, len(arch.facts)))
-    return Persona(
-        archetype=arch.key, label=arch.label, name=rng.choice(arch.names),
-        age=rng.randint(*arch.ages), place=rng.choice(arch.places or PLACES),
-        occupation=rng.choice(arch.occupations), facts=facts, voice=arch.voice, style=style,
-    )
 
 
 # --------------------------------------------------------------------------- utilidades de texto
@@ -319,7 +274,7 @@ def humanize(raw: str, aliases: list[str], style: Style, rng: random.Random, *,
              budget: int = 12, max_chars: int = 280) -> list[str] | None:
     """Saída crua do modelo → 1 ou 2 mensagens de chat críveis (ou None se inaproveitável)."""
     msg = first_line(raw, aliases)
-    if not msg or is_disclosure(msg):
+    if not msg or is_breach(msg):
         return None
     msg = _FORMAL_OPENERS.sub("", msg).strip()
     msg = _EMOJI.sub("", msg).strip()

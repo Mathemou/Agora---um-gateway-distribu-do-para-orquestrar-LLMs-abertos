@@ -73,7 +73,7 @@ async def setup_game(gateway, humans=2, **game):
     players = [room.join(f"jogador{i}") for i in range(humans)]
     queues = [room.connect(p) for p in players]
     room.start(players[0])
-    await wait_for(lambda: room.phase == Phase.DISCUSSION and room.topic)
+    await wait_for(lambda: room.phase == Phase.DISCUSSION and room.topic and not room.preparing)
     return room, players, queues
 
 
@@ -303,7 +303,7 @@ async def test_primeira_rodada_espera_a_ia_esquentar(tmp_path):
     a, b = room.join("A"), room.join("B")
     room.connect(a), room.connect(b)
     room.start(a)
-    await wait_for(lambda: room.preparing)
+    await wait_for(lambda: room.phase == Phase.DISCUSSION and room.preparing)
     assert room.state_for(a)["preparing"] is True
     with pytest.raises(GameError):
         room.post_chat(a, "oi")  # chat fechado enquanto a estação "liga"

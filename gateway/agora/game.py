@@ -33,7 +33,6 @@ from typing import Any, Callable
 
 from .ai import ImpostorAI, Narrator, mentions
 from .config import GameConfig
-from .personas import ARCHETYPES
 from .pipeline import Gateway
 from .security import BLOCK_CATEGORIES, detect_attack
 
@@ -138,6 +137,8 @@ class Room:
         return p.alive and self.phase in (Phase.DISCUSSION, Phase.VOTING)
 
     def can_start(self) -> bool:
+        if self._task is not None and not self._task.done():
+            return False  # já em preparação (persona/warm-up)
         n = sum(1 for p in self.humans() if p.connected)
         total = n + self.cfg.ai_count
         return self.phase == Phase.LOBBY and self.cfg.min_players <= total <= self.cfg.max_players
@@ -398,12 +399,16 @@ class Room:
     def start(self, p: Player) -> None:
         if p is not self.host:
             raise GameError("só o anfitrião começa a partida")
+        if self._task is not None and not self._task.done():
+            raise GameError("a partida já está começando")
         if not self.can_start():
             need = self.cfg.min_players - self.cfg.ai_count
             raise GameError(f"precisa de pelo menos {need} humanos conectados")
         # quem saiu do lobby sem fechar a conexão some aqui
         self.players = [h for h in self.humans() if h.connected]
+        self.preparing = True  # feedback imediato: o cliente vê "Preparando…"
         self._task = asyncio.create_task(self._run())
+        self.broadcast_state()
 
     def back_to_lobby(self, p: Player) -> None:
         if p is not self.host:
@@ -437,10 +442,13 @@ class Room:
             p.alive, p.ready = True, False
         self.ais = []
         for p in self.players:
-            if p.is_ai:  # com 2 IAs, cada uma sai com uma personalidade diferente
-                taken = tuple(ai.persona.archetype for ai in self.ais)
-                self.ais.append(ImpostorAI(self, p, self.gateway, self.cfg, self.rng, exclude=taken))
+            if p.is_ai:
+                self.ais.append(ImpostorAI(self, p, self.gateway, self.cfg, self.rng))
         self.narrator = Narrator(self, self.gateway, self.cfg, self.rng)
+
+    async def _create_personas(self) -> None:
+        """Cada IA cria a própria identidade antes de a partida começar."""
+        await asyncio.gather(*(ai.create_persona() for ai in self.ais))
 
     async def _wait_phase(self, seconds: float) -> None:
         self.deadline = time.monotonic() + seconds
@@ -462,6 +470,7 @@ class Room:
             self.result = self.ending = None
             self.round = 0
             self._assign_roles()
+            await self._create_personas()
             self.phase = Phase.DISCUSSION
             self.broadcast({"type": "history", "messages": []})
             self.broadcast_state()
@@ -514,9 +523,7 @@ class Room:
         self.topic = None
         self._phase_event.clear()
         warming = self._warm is not None and not self._warm.done()
-        if warming:
-            self.preparing = True
-            self.system_message("Preparando a partida… a conversa abre em instantes.")
+        # `preparing` já veio True de start() (criação da persona); continua no warm-up.
         self.broadcast_state()
         assert self.narrator is not None
         self.topic = await self.narrator.topic(self.round)
@@ -525,6 +532,7 @@ class Room:
                 await asyncio.wait_for(asyncio.shield(self._warm), self.cfg.warmup_timeout_s)
             except (asyncio.TimeoutError, Exception):
                 log.warning("aquecimento da IA não terminou a tempo na sala %s", self.code)
+        if self.preparing:
             self.preparing = False
             self.system_message("Pronto, podem conversar.")
         for ai in self.ais:
@@ -611,9 +619,7 @@ class Room:
         ai_stats = [s for ai in self.ais for s in ai.stats]
         resp = [s["response_ms"] for s in ai_stats if s.get("response_ms") is not None]
         over = [s["overrun_ms"] for s in ai_stats if s.get("overrun_ms") is not None]
-        personas = {ai.player.alias: {"label": ai.persona.label, "name": ai.persona.name,
-                                      "age": ai.persona.age, "key": ai.persona.archetype}
-                    for ai in self.ais}
+        personas = {ai.player.alias: ai.persona_text for ai in self.ais}
         ttft = [s["ttft_ms"] for s in ai_stats if s.get("ttft_ms") is not None]
         self.ending = {
             "winner": winner,
@@ -649,8 +655,7 @@ class Room:
             "ai_messages": ai_stats,
             "security": self.security_events,
             "narrator": self.narrator.stats if self.narrator else [],
-            "personas": [{"alias": ai.player.alias, **{k: v for k, v in vars(ai.persona).items() if k != "style"},
-                          "style": vars(ai.persona.style)} for ai in self.ais],
+            "personas": [{"alias": ai.player.alias, "texto": ai.persona_text} for ai in self.ais],
             "settings": self.cfg.model_dump(include={"discussion_s", "vote_s", "max_rounds",
                                                      "read_delay_s", "typing_cps"}),
         }
@@ -685,11 +690,6 @@ class RoomManager:
 
     def create(self, overrides: dict[str, Any] | None = None) -> Room:
         update: dict[str, Any] = {}
-        persona = (overrides or {}).get("ai_persona")
-        if persona:
-            if persona not in ARCHETYPES:
-                raise ValueError(f"personalidade desconhecida '{persona}'")
-            update["ai_persona"] = persona
         chosen = (overrides or {}).get("impostor_domain")
         if chosen:
             if not self.is_impostor_domain(chosen):

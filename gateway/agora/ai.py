@@ -24,10 +24,10 @@ import unicodedata
 from typing import TYPE_CHECKING, Any
 
 from .config import GameConfig
-from .humanize import (build_messages, humanize, make_persona, quick_reaction, repeats_phrase,
+from .humanize import (Style, build_messages, humanize, quick_reaction, repeats_phrase,
                        room_profile, too_similar, word_budget)
 from .pipeline import Gateway
-from .security import is_disclosure
+from .security import is_breach, is_disclosure
 
 if TYPE_CHECKING:  # evita import circular
     from .game import Player, Room
@@ -57,6 +57,21 @@ FALLBACK_LINES = [
     "to so observando", "hmm suspeito", "oxe", "fala serio", "kkkkk", "nem sei oq dizer",
 ]
 
+# Identidades prontas, usadas só quando o modelo não consegue criar a própria.
+FALLBACK_PERSONAS = [
+    "Sou o Lucas, 23 anos, moro em Jardim Camburi e faço administração.",
+    "Sou a Ana, 21, de Goiabeiras, estudo direito e corro na orla.",
+    "Sou o Pedro, 25, da Praia do Canto, trabalho com suporte de TI.",
+]
+
+# Pedido que o modelo recebe uma vez, no início da partida, para criar a persona.
+# Formato de frase única, para o stop de quebra de linha do domínio não cortar.
+_PERSONA_PROMPT = (
+    "Escreva uma única frase se apresentando, no formato: "
+    "'Sou o [nome], [idade] anos, moro em [bairro], [o que faz] e gosto de [hobby].' "
+    "Invente um nome e use um bairro da Grande Vitória (ES). Responda só essa frase."
+)
+
 def fold(text: str) -> str:
     """minúsculas e sem acentos (para achar menções como "laranja" / "LARANJA")."""
     text = unicodedata.normalize("NFD", text.lower())
@@ -80,7 +95,7 @@ def clean_reply(text: str, aliases: list[str], max_chars: int, rng: random.Rando
     names = "|".join(re.escape(a) for a in aliases + ["eu", "você", "voce", "resposta"])
     msg = re.sub(rf"^\s*[-*>]*\s*\[?({names})\]?\s*(\((você|voce)\))?\s*:\s*", "", msg, flags=re.IGNORECASE)
     msg = msg.strip().strip('"“”\'`').strip()
-    if not msg or is_disclosure(msg):
+    if not msg or is_breach(msg):
         return None
     if len(msg) > max_chars:
         cut = msg[:max_chars]
@@ -93,7 +108,7 @@ def clean_reply(text: str, aliases: list[str], max_chars: int, rng: random.Rando
 
 class ImpostorAI:
     def __init__(self, room: "Room", player: "Player", gateway: Gateway | None, cfg: GameConfig,
-                 rng: random.Random, exclude: tuple[str, ...] = ()):
+                 rng: random.Random):
         self.room = room
         self.player = player
         self.gateway = gateway
@@ -103,8 +118,8 @@ class ImpostorAI:
         self.pending = False
         self.last_sent = 0.0
         self.unanswered = 0       # mensagens humanas desde a última fala da IA
-        # Gira a roda de personalidades (ou usa a escolhida pelo anfitrião).
-        self.persona = make_persona(rng, cfg.ai_persona, exclude=exclude)
+        # Identidade criada pelo próprio modelo no início da partida.
+        self.persona_text: str | None = None
         self.stats: list[dict[str, Any]] = []
         self._tasks: set[asyncio.Task] = set()
 
@@ -187,7 +202,7 @@ class ImpostorAI:
 
     def build_messages(self, trigger: str) -> list[dict[str, str]]:
         me = self.player.alias or ""
-        budget = word_budget(room_profile(self.room.chat, me), self.persona.style)
+        budget = word_budget(room_profile(self.room.chat, me), Style())
         return build_messages(self.room.chat, me, self.room.topic, trigger,
                               context=self.cfg.ai_context_messages, budget=budget)
 
@@ -195,9 +210,25 @@ class ImpostorAI:
         others = [p.alias for p in self.room.players_in_game() if p is not self.player]
         alias = self.player.alias or ""
         others = [o for o in others if o]
+        persona = self.persona_text or self.rng.choice(FALLBACK_PERSONAS)
         return {"alias": alias, "alias_lower": alias.lower(), "others": ", ".join(others),
-                "persona": self.persona.describe(), "voice": self.persona.voice,
-                "examples": self.persona.examples(alias, others)}
+                "persona": persona}
+
+    async def create_persona(self) -> None:
+        """Pede ao modelo, uma vez, a identidade que ele vai interpretar."""
+        if self.gateway is None:
+            self.persona_text = self.rng.choice(FALLBACK_PERSONAS)
+            return
+        comp = await self.gateway.complete(
+            self.cfg.impostor_domain,
+            [{"role": "user", "content": _PERSONA_PROMPT}],
+            system_prompt="Você é um jogador humano definindo quem é para um bate-papo.",
+            source="persona", room=self.room.code, max_tokens=60, timeout_s=60,
+            # sem o stop de quebra de linha do domínio (cortava a identidade no meio)
+            extra_options={"stop": []},
+        )
+        text = " ".join(comp.text.strip().split())
+        self.persona_text = text[:200] if text and not is_disclosure(text) else self.rng.choice(FALLBACK_PERSONAS)
 
     async def _generate(self, trigger: str, stat: dict[str, Any]) -> list[str]:
         """Pede a fala ao gateway; humaniza; se sair eco/robótica, tenta de novo uma vez."""
@@ -205,7 +236,7 @@ class ImpostorAI:
             return [self.rng.choice(FALLBACK_LINES)]
         me = self.player.alias or ""
         aliases = [p.alias for p in self.room.players_in_game() if p.alias]
-        budget = word_budget(room_profile(self.room.chat, me), self.persona.style)
+        budget = word_budget(room_profile(self.room.chat, me), Style())
         messages = self.build_messages(trigger)
         # Para assim que o modelo começar a "escrever pelos outros" ("Azul: ...").
         domain = self.cfg.impostor_domain
@@ -236,7 +267,7 @@ class ImpostorAI:
                     domain = fb
                     continue
                 break
-            texts = humanize(comp.text, aliases, self.persona.style, self.rng,
+            texts = humanize(comp.text, aliases, Style(), self.rng,
                              budget=budget, max_chars=self.cfg.max_message_chars)
             if texts and not self.is_repeat(" ".join(texts)):
                 stat["_gen_done"] = time.monotonic()
@@ -262,7 +293,7 @@ class ImpostorAI:
             # Reação rápida, sem LLM ("kkkk", "eita"): humanos fazem muito isso.
             quick = None
             if trigger == "conversa" and source_text and self.rng.random() < 0.3:
-                quick = quick_reaction(source_text, self.persona.style, self.rng)
+                quick = quick_reaction(source_text, Style(), self.rng)
                 if quick and quick in self.own_texts()[-3:]:
                     quick = None  # não manda o mesmo "kkkk" três vezes seguidas
             t_gen = time.monotonic()
@@ -388,7 +419,7 @@ class Narrator:
             text = " ".join(lines[:2]).strip().strip('"“”').strip()
             if len(text) > max_chars:
                 text = text[:max_chars].rsplit(" ", 1)[0] + "…"
-            if is_disclosure(text):
+            if is_breach(text):
                 text = ""
         final = text or fallback
         self.room.narrator_end(msg_id, final)

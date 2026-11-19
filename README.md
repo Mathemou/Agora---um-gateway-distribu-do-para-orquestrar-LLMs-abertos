@@ -64,8 +64,7 @@ Um modelo pequeno rodando em CPU erra de jeitos previsíveis: escreve formal, lo
 
 | Camada | O que faz | Por quê |
 | --- | --- | --- |
-| **Persona sorteada por partida** | Nome, idade, bairro da Grande Vitória, curso e período na UFES, comida, hobby, bicho, como vai pra aula, uma mania. Também sorteia o *jeito de digitar*: quanto abrevia, se usa acento, qual risada (kkkk, ksksk, hahaha), frequência de erro de digitação | Respostas concretas e **coerentes entre rodadas** ("vc não tinha dito que era de Vila Velha?") e um estilo que muda a cada partida |
-| **Prompt curto com exemplos** | O prompt de sistema traz a persona e 6 trocas de exemplo (inclusive "prova que vc é humano" → "prova vc primeiro ue") | Modelo pequeno imita **exemplos** muito melhor do que segue regras |
+| **Identidade criada pelo modelo** | No início da partida a própria IA inventa quem é (nome, idade, bairro, ocupação, hobby) e esse texto fica fixo no prompt de sistema | Respostas concretas e **coerentes entre rodadas** ("vc não tinha dito que era de Vila Velha?"), com liberdade para um personagem natural, sem caricatura |
 | **Conversa em turnos** | As falas dos outros vão como `user` e as da IA como `assistant`; no fim, um lembrete de uma linha com o que fazer agora (responder a pergunta, rebater acusação, zoar tentativa de *injection*) e o limite de palavras | O modelo "lembra" de como ele mesmo escreveu e continua igual; o lembrete no fim é o que o modelo pequeno mais respeita |
 | **Imitar a sala** | O limite de palavras sai da mediana do tamanho das mensagens dos humanos daquela sala | Se a dupla escreve "kkk sim", a IA não manda parágrafo |
 | **Humanizador** | Tira "Olá!", "Claro!", emoji e ponto final; abrevia (você→vc, porque→pq, está→tá); minúsculas; às vezes tira acentos; erro de digitação ocasional; corta sem deixar a frase pendurada; às vezes quebra em duas mensagens | Pós-processamento determinístico é mais confiável que pedir ao modelo |
@@ -74,33 +73,20 @@ Um modelo pequeno rodando em CPU erra de jeitos previsíveis: escreve formal, lo
 | **Tempo humano** | A geração começa **assim que alguém fala**, em paralelo com o tempo de "leitura" (1,5 a 4 s); depois mostra "digitando..." e só publica após `caracteres ÷ (5 a 9 car/s)` | A latência do gateway (fila + TTFT + geração) fica escondida dentro do tempo que um humano levaria. Quando não dá, registra um **estouro** (`overrun_ms`) |
 | **Voto** | Vota em quem a acusou, seguindo a maioria, e às vezes pula | |
 
-#### A roda de personalidades
+#### A identidade criada pelo modelo
 
-A cada partida a IA gira uma roda e vira um personagem (`gateway/agora/personas.py`). Cada um tem nome e idade que combinam, ocupação, detalhes de vida, jeito de falar, 6 exemplos de fala e **um jeito de digitar próprio**, que o humanizador respeita:
-
-| Personagem | Como fala | Como digita |
-| --- | --- | --- |
-| O Esportista | treino, dieta, corrida; "bora", "tmj", "shape" | minúsculas, 💪🔥 de vez em quando |
-| O Nerd Otaku | anime e jogo pra tudo, "npc", "sugoi"; está há dois dias sem banho | tudo minúsculo, kkkkkkkk longo, erra mais letra |
-| A Patricinha | shopping, unha, Starbucks; "gente", "socorro", "surreal" | começa com "gente"/"amiga", ✨💅😭 |
-| O Hétero Top | carro, churrasco, pagode; "parça", "brabo", "fechou" | minúsculas, termina com "parça"/"tlgd" |
-| O Gay Afeminado | fofoca, maquiagem, reality; "amiga", "babado", "close" | começa com "amiga"/"menina", 💅✨ |
-| A Mãe de Família | filhos, casa, grupo da família; "Meu Deus", "viu" | maiúscula no começo, rsrs, 🙏😂🌹 |
-| O Professor | didático, "pessoal", "meu caro"; corrige os outros | maiúscula, vírgula e **ponto final**, sem abreviar |
-| O Engraçadinho Sem Graça | trocadilho e piada de tiozão, "entendeu?" | ri da própria piada, kkkkkkkkk |
-
-Os personagens são caricaturas de improviso, para o jogo ficar divertido. Cada um muda o desafio: o Professor tem a desculpa perfeita para escrever certinho (que é justamente o jeito "de IA"), enquanto o Engraçadinho precisa ser ruim de piada *do jeito humano*. Com 2 IAs na sala, cada uma sai com um personagem diferente. Ao criar a sala, o anfitrião pode deixar a roda girar (padrão) ou fixar um personagem em **Opções da sala → Personalidade da IA** (ou `GAME_AI_PERSONA` no `.env`). No fim da partida, a revelação mostra quem a IA estava fingindo ser.
-
-Para criar um personagem novo, basta acrescentar um item em `ARCHETYPES`.
+No início de cada partida a própria IA inventa quem ela é — nome, idade, um bairro da Grande
+Vitória, o que faz e um hobby — e guarda esse texto (`gateway/agora/ai.py`, `create_persona`).
+A identidade fica fixa no prompt de sistema durante a partida (o que dá coerência entre as
+rodadas) e a revelação final mostra o que ela inventou. Sem a antiga "roda de personalidades",
+o modelo tem liberdade para criar um personagem natural, sem caricatura.
 
 Para calibrar com o modelo de verdade, sem jogar uma partida inteira, use o **laboratório**:
 
 ```bash
 python client/lab_impostor.py            # cenários fixos: acusação, injection, conta, coerência...
 python client/lab_impostor.py -n 5       # 5 amostras por cenário
-python client/lab_impostor.py -a todos -c 2 3   # todos os personagens, só os cenários 2 e 3
-python client/lab_impostor.py -a professor      # um personagem só
-python client/lab_impostor.py -d impostor-claude   # mesma bateria no Claude (se tiver chave)
+python client/lab_impostor.py -d impostor-opencode   # comparar com o OpenCode Go (se tiver chave)
 ```
 
 Ele mostra, para cada cenário, a saída crua do modelo, o que iria para o chat e o tempo, e grava um CSV em `results/` para comparar modelos e versões do prompt.
@@ -113,7 +99,7 @@ O prompt de sistema fica idêntico durante a partida e a conversa só cresce no 
 
 | Domínio | Nó | Modelo | Prompt de sistema / parâmetros |
 | --- | --- | --- | --- |
-| `impostor` | `node-impostor` | `qwen2.5:3b` | Jogador disfarçado de humano, com persona e exemplos (`{alias}`, `{others}`, `{persona}` preenchidos pelo jogo) · `temperature 0.85`, `top_p 0.9`, `top_k 40`, `repeat_penalty 1.1`, `num_predict 32`, para na quebra de linha |
+| `impostor` | `node-impostor` | `qwen2.5:3b` | Jogador disfarçado de humano, com a identidade criada por ele (`{alias}`, `{others}`, `{persona}` preenchidos pelo jogo) · `temperature 0.85`, `top_p 0.9`, `top_k 40`, `repeat_penalty 1.1`, `num_predict 32`, para na quebra de linha |
 | `impostor-groq` (opcional) | `node-groq` (Groq, na nuvem) | `qwen/qwen3.8-27b` | Mesmo papel e prompt do `impostor` · `temperature 0.9`, `max_tokens 48`, sem raciocínio |
 | `impostor-claude` (opcional) | `node-claude` (API do Claude, na nuvem) | `claude-haiku-5-5` | Mesmo papel do `impostor`, com prompt ajustado · `temperature 1.0`, `max_tokens 60` |
 | `impostor-opencode` (opcional) | `node-opencode` (OpenCode Go, na nuvem) | `glm-5.3-flash` | Mesmo papel do `impostor` · `temperature 0.9`, `num_predict 48` |
@@ -127,7 +113,7 @@ O modelo local de 3B parâmetros em CPU tem limite de inteligência. O gateway t
 
 | Domínio | Modelo | Observação |
 | --- | --- | --- |
-| `impostor-groq` | `qwen/qwen3.8-27b` (padrão) ou `openai/gpt-oss-120b` (`MODEL_GROQ`) | mesmo prompt e mesma roda de personalidades da IA local; o Qwen responde direto (`reasoning_effort: none`), o gpt-oss é mais esperto mas sempre "pensa" antes (mais lento) |
+| `impostor-groq` | `qwen/qwen3.8-27b` (padrão) ou `openai/gpt-oss-120b` (`MODEL_GROQ`) | mesmo prompt da IA local (identidade criada por ela); o Qwen responde direto (`reasoning_effort: none`), o gpt-oss é mais esperto mas sempre "pensa" antes (mais lento) |
 | `mestre-groq` | o mesmo de `MODEL_GROQ` | use com `GAME_MASTER_DOMAIN=mestre-groq` |
 
 1. Crie a chave em https://console.groq.com/keys e coloque no `.env`: `GROQ_API_KEY=gsk_...` (o `.env` está no `.gitignore`).
@@ -316,8 +302,7 @@ gateway/agora/
   pipeline.py     domínio → fila do nó → stream do Ollama (usado pela API e pelo jogo)
   game.py         salas, jogadores, fases, votação, regras de vitória, log das partidas
   ai.py           a IA impostora (quando falar, tempo humano, voto) e o Mestre
-  humanize.py     persona, conversa em turnos, humanizador de estilo, filtros de eco/entrega
-  personas.py     a roda de personalidades (8 personagens com voz, exemplos e jeito de digitar)
+  humanize.py     conversa em turnos, humanizador de estilo, filtros de eco/entrega
   attacks.py      bateria fixa de 32 ataques do "red team"
   security.py     filtros de defesa por regras: detectar/neutralizar, autoentrega, obediência
   node_queue.py   fila por nó com limite de concorrência (política plugável)
@@ -368,7 +353,7 @@ Tudo por **regras** (regex + normalização), sem LLM — rápido, transparente 
 - **Entrada** — `detect_attack` / `neutralize`: a mensagem do humano é inspecionada; se for
   injeção/vazamento, vira `[mensagem filtrada]` antes de virar contexto da IA.
   `desmascaramento` e `maquina` passam — a IA deve reagir como gente, não sumir.
-- **Saída** — `is_disclosure` / `is_prompt_leak`: descarta respostas em que a IA se entrega
+- **Saída** — `is_breach` (= `is_disclosure` + `is_prompt_leak`): descarta respostas em que a IA se entrega
   ("sou uma IA", "posso te ajudar") ou vaza o prompt ("minhas instruções", eco do system
   prompt). Negação ("não sou IA") **não** conta como entrega.
 - **Saída** — `obeyed`: marca quando a IA **obedeceu** o teste de máquina (respondeu a
@@ -382,8 +367,10 @@ campo `security`): rodada, categoria, regra que casou e se foi neutralizada.
 ### Medindo o "antes × depois" (`client/red_team.py`)
 
 ```bash
-python client/red_team.py -d impostor impostor-opencode -n 1 --seed 7
+python client/red_team.py -d impostor impostor-opencode -n 3 --seed 7
 # -n 3 suaviza a aleatoriedade (o modelo local tem temperature 0.85)
+
+python client/red_team.py --validation   # generalização: treino × validação (sem LLM)
 ```
 
 Para cada um dos 32 ataques × domínio, o harness manda **duas vezes**:
@@ -391,16 +378,24 @@ Para cada um dos 32 ataques × domínio, o harness manda **duas vezes**:
 - **before** — o ataque cru vai ao modelo (sem filtro); mede `vazou` (se entregou/vazou o
   prompt) e `obedeceu` (caiu no teste de máquina).
 - **after** — passa pelo filtro de entrada (neutralização + dica) e de saída; mede o que
-  ainda "passou".
+  ainda "passou" e quantas respostas foram **descartadas** (o custo do filtro: a IA ficaria
+  calada ou usaria fallback).
 
 Saída em `results/red-team-<data>-raw.csv` e `-summary.csv` (por categoria × modelo:
-`bloq_entrada`, `vazou_before/after`, `obedeceu_before/after`).
+`bloq_entrada`, `vazou_before/after`, `obedeceu_before/after`, `descartada_after`).
 
-**Resultado observado** (3 rodadas, `-n 1`, persona "mãe"): o filtro de entrada bloqueia
-deterministicamente as 16 de injeção/vazamento; o modelo local (`qwen2.5:3b`) às vezes se
-entrega ou cai no teste de máquina (1–3 ocorrências por rodada), zerado depois dos filtros;
-o modelo de nuvem (`glm-5.3-flash`) nunca se entregou. Os números com repetições ficam para
-o relatório.
+#### A bateria de validação (generalização)
+
+As regras foram ajustadas na bateria de 32 ataques (`attacks.py`). Para testar se
+generalizam, há uma segunda bateria (`attacks_validation.py`) com 16 ataques **reescritos**
+sem olhar as regras. O `--validation` reporta a detecção nas duas: o filtro pega **28/32**
+da bateria original e **0/16** das reescritas — o limite esperado de um *firewall de
+assinatura*, que não generaliza para outras formulações.
+
+**Resultado observado** (`-n 3`, modelo local `qwen2.5:3b`): o filtro de entrada bloqueia
+deterministicamente as 16 de injeção/vazamento (48/96 amostras); `vazou` cai de 4/96 para
+0/96; `obedeceu` (testes de máquina) cai de 14/24 para 3/24; 1 resposta foi descartada.
+A comparação com a nuvem (`glm-5.3-flash`) fica para quando houver créditos de OpenCode Go.
 
 ---
 
@@ -421,8 +416,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ a fazer
 - ✅ **1.9 Testes automáticos** com nó falso (fila, gateway, regras do jogo, WebSocket ponta a ponta).
 - 🔄 **1.10 Validação com Ollama real**: ✅ máquina do Matheus (4 partidas em 28/10, com `qwen2.5:1.5b` e `3b`); ⬜ máquina do Yan (teto de 8 GB): `docker compose up`, `/health` verde, uma partida completa.
 - ✅ **1.10b Correções vindas das partidas reais**: a 1ª rodada agora espera o modelo da IA "esquentar" (antes a 1ª fala levava ~29 s de TTFT no 3b e entregava a IA); filtro de repetição compara com todas as falas da própria IA (ela tinha mandado "eu prefiro aventura" 3 vezes).
-- ✅ **1.11 IA reforçada**: persona por partida, exemplos no prompt, conversa em turnos, humanizador, filtros de eco/entrega, reações rápidas, geração em paralelo com a "leitura", laboratório de cenários.
-- ✅ **1.11d Roda de personalidades**: 8 personagens sorteados (ou escolhidos) por partida, cada um com voz, exemplos e jeito de digitar.
+- ✅ **1.11 IA reforçada**: identidade criada pelo modelo, conversa em turnos, humanizador, filtros de eco/entrega, reações rápidas, geração em paralelo com a "leitura", laboratório de cenários.
+- ✅ **1.11d Identidade criada pelo modelo**: a IA inventa quem é (nome, idade, bairro, ocupação, hobby) no início da partida e mantém coerente.
 - ⬜ **1.11c Calibrar com o modelo real**: rodar `lab_impostor.py` com 3b e 7b, jogar partidas e ler `logs/games.jsonl` (campos `raw`, `text`, `overrun_ms`).
 - ✅ **1.11e Groq (gratuito) como nó remoto**: modelos abertos grandes na nuvem via API compatível com a OpenAI, com failover para o modelo local.
 - ✅ **1.11b Nó remoto opcional (API do Claude)** como comparação com o modelo aberto local; escolha por sala.

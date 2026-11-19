@@ -1,8 +1,7 @@
 import random
 
-from agora.personas import ARCHETYPES
-from agora.humanize import (Style, build_messages, cut_words, humanize, looks_like_test, make_persona,
-                            quick_reaction, room_profile, too_similar, word_budget)
+from agora.humanize import (Style, build_messages, cut_words, humanize, looks_like_test,
+                            quick_reaction, too_similar)
 
 ALIASES = ["Laranja", "Azul", "Verde"]
 
@@ -73,15 +72,6 @@ def test_conversa_comeca_com_user_mesmo_se_a_ia_falou_primeiro():
     assert turns[0]["role"] == "user" and turns[1]["role"] == "assistant" and turns[-1]["role"] == "user"
 
 
-def test_persona_e_orcamento():
-    p = make_persona(random.Random(3))
-    d = p.describe()
-    assert p.name in d and "Grande Vitória" in d and p.label.lower() in d
-    prof = room_profile([msg("Azul", "oi"), msg("Verde", "eae mano")], "Laranja")
-    assert prof["median_words"] == 1.5
-    assert 4 <= word_budget(prof, p.style) <= 16
-
-
 def test_reacao_rapida():
     st = Style(laugh="kkkk")
     assert quick_reaction("o azul caiu da cadeira kkkkk", st, random.Random(1)).startswith(("kkkk", "mds"))
@@ -95,60 +85,9 @@ def test_corte_prefere_pausa():
     assert cut_words("frase de onze palavras fica inteira porque passa pouco do limite", 9).endswith("limite")
 
 
-def test_roda_gira_todos_os_arquetipos():
-    rng = random.Random(0)
-    seen = {make_persona(rng).archetype for _ in range(200)}
-    assert seen == set(ARCHETYPES)
-    assert len(ARCHETYPES) >= 8
-
-
-def test_arquetipo_escolhido_e_exclusao():
-    rng = random.Random(1)
-    assert make_persona(rng, "professor").label == "O Professor"
-    for _ in range(30):
-        assert make_persona(rng, None, exclude=("mae", "otaku")).archetype not in ("mae", "otaku")
-
-
-def test_otaku_sempre_fedido():
-    p = make_persona(random.Random(2), "otaku")
-    assert any("banho" in f for f in p.facts)
-
-
-def test_exemplos_usam_os_codinomes_da_sala():
-    p = make_persona(random.Random(3), "patricinha")
-    ex = p.examples("Laranja", ["Ciano", "Rosa"])
-    assert "Ciano:" in ex and "Rosa:" in ex and "laranja" in ex and "{" not in ex
-    # a acusação de exemplo aponta para um terceiro, não para quem fala
-    for line in ex.splitlines():
-        if line.startswith("Ciano: acho que é o"):
-            assert line.endswith("Rosa")
-
-
-def test_professor_escreve_certinho():
-    p = make_persona(random.Random(4), "professor")
-    out = humanize("pessoal, eu acho que o azul está suspeito", ALIASES, p.style, random.Random(4), budget=12)
-    assert out[0][0].isupper() and out[0].endswith(".")
-    assert not {"vc", "tá"} & set(out[0].replace(",", " ").split())
-
-
-def test_mae_comeca_maiuscula_e_rsrs():
-    p = make_persona(random.Random(5), "mae")
-    assert p.style.laugh == "rsrs"
-    out = humanize("kkkk os meninos amam moqueca", ALIASES, p.style, random.Random(1), budget=12)
-    assert "rsrs" in out[0]
-
-
-def test_emoji_do_modelo_sai_e_o_da_persona_entra():
-    p = make_persona(random.Random(6), "patricinha")
-    p.style.emoji_rate = 1.0
-    p.style.filler_rate = 0.0
-    out = humanize("amei essa pergunta 🤖🤖", ALIASES, p.style, random.Random(6), budget=12)
-    assert "🤖" not in out[-1] and out[-1].split()[-1] in p.style.emojis
-
-
 def test_nao_corta_finais_validos():
     from agora.humanize import trim_dangling
-    assert trim_dangling("quem falou primeiro foi o vermelho, não fui eu") .endswith("eu")
+    assert trim_dangling("quem falou primeiro foi o vermelho, não fui eu").endswith("eu")
     assert trim_dangling("e vc mora onde") == "e vc mora onde"
     assert trim_dangling("tava dormindo ontem nessa") == "tava dormindo ontem"
 

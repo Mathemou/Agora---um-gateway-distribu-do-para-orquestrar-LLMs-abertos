@@ -28,7 +28,6 @@ from pydantic import BaseModel, Field, model_validator
 from . import __version__
 from .config import GatewayConfig, load_config
 from .game import GameError, RoomManager
-from .personas import ARCHETYPES
 from . import anthropic, openai_compat
 from .ollama import NodeError, list_models
 from .pipeline import Gateway, QueueFull, UnknownDomain
@@ -65,8 +64,6 @@ class RoomCreate(BaseModel):
     min_players: int | None = None
     # Qual domínio faz o papel da IA (ex.: "impostor" local ou "impostor-claude").
     impostor_domain: str | None = None
-    # Personalidade da IA (ver GET /v1/personas); vazio = sorteada a cada partida.
-    ai_persona: str | None = None
 
 
 STATIC = Path(__file__).parent / "static"
@@ -152,11 +149,6 @@ def create_app(
                    "kind": cfg.nodes[d.node].kind, "impostor": rooms.is_impostor_domain(name)}
             for name, d in cfg.domains.items()
         }
-
-    @app.get("/v1/personas")
-    async def personas() -> dict[str, str]:
-        """A roda de personalidades da IA impostora."""
-        return {k: a.label for k, a in ARCHETYPES.items()}
 
     @app.get("/v1/nodes")
     async def nodes() -> list[dict[str, Any]]:

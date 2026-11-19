@@ -79,8 +79,6 @@ class GameConfig(BaseModel):
     typing_cps: tuple[float, float] = (5.0, 9.0)
     # Intervalo mínimo entre duas mensagens da IA e quantas linhas de conversa ela lê.
     ai_cooldown_s: float = Field(default=5, ge=0)
-    # Personalidade da IA (chave de personas.ARCHETYPES); None = gira a roda a cada partida.
-    ai_persona: str | None = None
     ai_context_messages: int = Field(default=30, ge=4)
     max_message_chars: int = Field(default=280, ge=20)
     # Log de partidas e de mensagens da IA (insumo para a análise de detecção).

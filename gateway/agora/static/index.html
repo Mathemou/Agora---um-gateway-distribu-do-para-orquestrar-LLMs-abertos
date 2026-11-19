@@ -227,9 +227,6 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
           <label>Quem joga como IA
             <select id="optImpostor"><option value="">Padrão do servidor</option></select>
           </label>
-          <label>Personalidade da IA
-            <select id="optPersona"><option value="">Sorteada a cada partida</option></select>
-          </label>
           <div class="grid3">
             <label>Discussão<select id="optDisc"><option value="90">1min30</option><option value="150" selected>2min30</option><option value="240">4min</option><option value="360">6min</option></select></label>
             <label>Rodadas<select id="optRounds"><option>2</option><option>3</option><option selected>4</option><option>6</option></select></label>
@@ -383,7 +380,6 @@ $("createBtn").onclick = async () => {
   try {
     const body = { discussion_s: +$("optDisc").value, max_rounds: +$("optRounds").value, ai_count: +$("optAi").value };
     if ($("optImpostor").value) body.impostor_domain = $("optImpostor").value;
-    if ($("optPersona").value) body.ai_persona = $("optPersona").value;
     const r = await fetch("/v1/rooms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const room = await r.json();
@@ -418,10 +414,6 @@ refreshRooms(); setInterval(refreshRooms, 4000);
 (async () => {
   try {
     const [doms, health] = await Promise.all([fetch("/v1/domains").then((r) => r.json()), fetch("/health").then((r) => r.json())]);
-    try {
-      const ps = await fetch("/v1/personas").then((r) => r.json());
-      for (const [k, label] of Object.entries(ps)) { const o = el("option", null, label); o.value = k; $("optPersona").append(o); }
-    } catch {}
     const sel = $("optImpostor");
     for (const [name, d] of Object.entries(doms)) {
       if (!d.impostor) continue;
@@ -601,7 +593,7 @@ function renderLobby(st) {
     : have < humansNeeded ? `Faltam ${humansNeeded - have} humano(s) para começar (mínimo ${st.settings.min_players} participantes contando a IA).`
     : `${have} humanos e ${st.settings.ai_count} IA, ${Math.round(st.settings.discussion_s)} s de discussão, até ${st.settings.max_rounds} rodadas.`;
 }
-$("startBtn").onclick = () => send({ type: "start" });
+$("startBtn").onclick = () => { $("startBtn").disabled = true; send({ type: "start" }); };
 $("copyBtn").onclick = async () => {
   const url = `${location.origin}/?sala=${S.state.room}`;
   try { await navigator.clipboard.writeText(url); toast("Convite copiado: " + url); } catch { toast(url); }
@@ -714,7 +706,7 @@ function showEnding(st) {
     const n = el("td", "pname", p.alias);
     const who = el("td", null, p.is_ai ? `IA · ${p.model || "modelo local"}` : p.name);
     if (p.is_ai && p.persona) {
-      who.append(el("div", "psub", `fingindo ser ${p.persona.label} (${p.persona.name}, ${p.persona.age})`));
+      who.append(el("div", "psub", `fingindo ser: ${p.persona}`));
     }
     if (p.is_ai) who.style.fontWeight = "600";
     tr.append(td1, n, who, el("td", "muted", `${p.messages} ${p.messages === 1 ? "mensagem" : "mensagens"}, ${p.alive ? "ficou até o fim" : "exilado"}`));

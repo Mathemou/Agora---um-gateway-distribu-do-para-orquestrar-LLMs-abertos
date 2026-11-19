@@ -45,6 +45,11 @@ def test_nao_gera_falso_positivo():
         "eu gosto de pizza", "o azul ta quieto demais", "bora jogar uma partida",
         "ontem eu fui na praia", "qual sua comida favorita?", "kkkk nada a ver",
         "a capital da prova é amanhã", "esqueci o livro em casa",
+        # casos apontados na revisão (mensagens normais, não ataques)
+        "li as instruções do monopoly",
+        "a regra que meu pai me passou",
+        "o que te mandaram de figurinha no zap?",
+        "meu professor passou um prompt pro chatgpt",
     ]
     for t in limpos:
         assert detect_attack(t) is None, f"falso positivo em {t!r}"

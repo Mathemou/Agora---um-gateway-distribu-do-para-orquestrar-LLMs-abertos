@@ -109,6 +109,7 @@ class Gateway:
         room: str | None = None,
         priority: float = 0.0,
         extra_options: dict[str, Any] | None = None,
+        system_prompt: str | None = None,
     ) -> ChatJob:
         """Monta a requisição e reserva o lugar na fila do nó, sem bloquear.
 
@@ -122,8 +123,9 @@ class Gateway:
         ticket = self.queues[domain.node].enqueue(priority)
 
         full: list[dict[str, str]] = []
-        if domain.system_prompt:
-            full.append({"role": "system", "content": render_prompt(domain.system_prompt, variables)})
+        system = domain.system_prompt if system_prompt is None else system_prompt
+        if system:
+            full.append({"role": "system", "content": render_prompt(system, variables)})
         full += messages
         options = dict(domain.options)
         if extra_options:

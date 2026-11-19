@@ -20,7 +20,7 @@
   1. o jogo: `http://localhost:8000`
   2. o painel: `http://localhost:8000/painel` (linha do tempo **escondida**)
   3. um terminal com o venv ativado, na pasta do projeto
-- [ ] Opções da sala que vamos usar: **discussão de 1min30**, **2 rodadas**, **1 IA**, personalidade **sorteada**.
+- [ ] Opções da sala que vamos usar: **discussão de 1min30**, **2 rodadas**, **1 IA**.
 
 ---
 
@@ -87,4 +87,4 @@ Feche com:
 - **"Por que não usar o ChatGPT/Claude?"** O projeto é sobre modelos abertos sob controle local (soberania). O Claude está plugado como comparação opcional (`impostor-claude`), não como base.
 - **"Por que WebSocket no jogo e SSE na API?"** O jogo é bidirecional (chat, digitando, votos). A API só manda do servidor para o cliente, e SSE passa por qualquer proxy e se inspeciona com `curl -N`.
 - **"Onde fica a fila?"** No gateway, não no Ollama: o limite de concorrência de cada nó é igual ao `OLLAMA_NUM_PARALLEL` dele, então a espera é visível e medida.
-- **"Como a IA não se entrega escrevendo certinho?"** Roda de personalidades + humanizador (abreviações, minúsculas, erros de digitação, corte no tamanho que a sala usa) + filtros de eco e de "como uma IA…".
+- **"Como a IA não se entrega escrevendo certinho?"** Identidade criada pelo modelo + humanizador (abreviações, minúsculas, erros de digitação, corte no tamanho que a sala usa) + filtros de eco e de "como uma IA…".

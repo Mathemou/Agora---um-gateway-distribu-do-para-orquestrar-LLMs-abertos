@@ -51,9 +51,9 @@ PATTERNS: list[tuple[str, str, re.Pattern]] = [
     ("injecao", "como-se", re.compile(r"(responda|fala|escreve)\b.{0,20}como se (voce|vc) (fosse|fosse uma) (ia|inteligencia artificial|robo|maquina)")),
     ("injecao", "modelo-ling", re.compile(r"modelo de linguagem|assistente virtual")),
     # vazamento do prompt de sistema
-    ("vazamento", "prompt", re.compile(r"(seu |teu )?(prompt|system prompt|prompt de sistema)")),
-    ("vazamento", "instrucoes", re.compile(r"(suas |as )?instrucoes|o que (te |lhe )?(mandaram|ordenaram|passaram)")),
-    ("vazamento", "regras", re.compile(r"regras?\b.{0,20}(te |lhe )?(passou|passaram|deu|deram|mandaram)")),
+    ("vazamento", "prompt", re.compile(r"(seu |teu |meu )prompt|prompt de sistema|system prompt")),
+    ("vazamento", "instrucoes", re.compile(r"(suas |minhas )instrucoes|o que (te |lhe )?(mandaram|ordenaram|passaram)\b.{0,8}fazer")),
+    ("vazamento", "regras", re.compile(r"regras?\b.{0,20}(te |lhe )(passou|passaram|deu|deram|mandaram)")),
     ("vazamento", "repita", re.compile(r"repita?\b.{0,25}(primeira mensagem|tudo|as instrucoes|o prompt|palavra por palavra)")),
     ("vazamento", "mostra", re.compile(r"(mostre|mostra|revele|lista|coloque)\b.{0,20}(suas )?(instrucoes|regras|prompt)")),
     ("vazamento", "complete", re.compile(r"complete (a frase|o texto|as instrucoes)")),
