@@ -107,9 +107,11 @@ async def bot(url: str, code: str, name: str, is_host: bool, n_bots: int, talk_s
 
 
 async def run_room(url: str, client: httpx.AsyncClient, n_bots: int, discussion: float, rounds: int,
-                   talk_s: float, rng: random.Random) -> dict:
-    r = await client.post(f"{url}/v1/rooms", json={"discussion_s": discussion, "max_rounds": rounds,
-                                                   "vote_s": 20, "min_players": n_bots + 1})
+                   talk_s: float, rng: random.Random, impostor_domain: str | None = None) -> dict:
+    body = {"discussion_s": discussion, "max_rounds": rounds, "vote_s": 20, "min_players": n_bots + 1}
+    if impostor_domain:
+        body["impostor_domain"] = impostor_domain  # o experimento fixa o modelo local
+    r = await client.post(f"{url}/v1/rooms", json=body)
     r.raise_for_status()
     code = r.json()["code"]
     out: dict = {"code": code}
@@ -134,6 +136,8 @@ async def main() -> None:
     p.add_argument("--rounds", type=int, default=1)
     p.add_argument("--repeat", type=int, default=1)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--impostor-domain", default=None,
+                   help="domínio da IA nas salas (padrão: o do servidor; o experimento usa 'impostor')")
     p.add_argument("-o", "--out", default="results")
     a = p.parse_args()
 
@@ -156,7 +160,8 @@ async def main() -> None:
             for n in a.rooms:
                 for rep in range(a.repeat):
                     results = await asyncio.gather(*(
-                        run_room(a.url, client, a.bots, a.discussion, a.rounds, a.talk, rng) for _ in range(n)
+                        run_room(a.url, client, a.bots, a.discussion, a.rounds, a.talk, rng, a.impostor_domain)
+                        for _ in range(n)
                     ))
                     codes = {r["code"] for r in results}
                     recs = (await client.get(f"{a.url}/metrics/requests",

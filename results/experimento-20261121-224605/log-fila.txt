@@ -1,0 +1,21 @@
+fila=fifo rep=0: 2 interativos + 4 em lote por 60 s
+  interativa n=9    e2e p50=13887.4 p95=16754.5 ms  fila p50=10991.7 ms  estouro do orçamento=100%
+  lote       n=18   e2e p50=16240.0 p95=19475.4 ms  fila p50=9502.3 ms
+fila=fifo rep=1: 2 interativos + 4 em lote por 60 s
+  interativa n=9    e2e p50=12213.7 p95=15981.9 ms  fila p50=9825.3 ms  estouro do orçamento=89%
+  lote       n=20   e2e p50=13477.2 p95=17848.3 ms  fila p50=8105.0 ms
+fila=fifo rep=2: 2 interativos + 4 em lote por 60 s
+  interativa n=10   e2e p50=11798.5 p95=13845.4 ms  fila p50=9010.0 ms  estouro do orçamento=90%
+  lote       n=20   e2e p50=13697.5 p95=16163.9 ms  fila p50=8298.0 ms
+fila=priority rep=0: 2 interativos + 4 em lote por 60 s
+  interativa n=11   e2e p50=9528.7 p95=14499.1 ms  fila p50=6895.5 ms  estouro do orçamento=55%
+  lote       n=20   e2e p50=14613.5 p95=20287.7 ms  fila p50=8848.4 ms
+fila=priority rep=1: 2 interativos + 4 em lote por 60 s
+  interativa n=10   e2e p50=10812.1 p95=13155.2 ms  fila p50=7908.9 ms  estouro do orçamento=60%
+  lote       n=20   e2e p50=14138.5 p95=19155.0 ms  fila p50=9369.1 ms
+fila=priority rep=2: 2 interativos + 4 em lote por 60 s
+  interativa n=10   e2e p50=12054.0 p95=14569.8 ms  fila p50=9195.7 ms  estouro do orçamento=80%
+  lote       n=18   e2e p50=14849.2 p95=18321.2 ms  fila p50=9944.2 ms
+
+CSV: C:\Users\mathe\Desktop\T2 - Redes\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\results\experimento-20261121-224605\desempenho-fila-20261121-231508-raw.csv
+     C:\Users\mathe\Desktop\T2 - Redes\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\results\experimento-20261121-224605\desempenho-fila-20261121-231508-summary.csv

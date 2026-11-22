@@ -11,3 +11,4 @@ results/*
 !results/.gitkeep
 !results/red-team-*.csv
 !results/desempenho-no-falso/
+!results/experimento-20261121-224605/

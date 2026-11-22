@@ -1,0 +1,460 @@
+{
+  "ambiente": {
+    "data": "2026-11-21T22:46:05",
+    "commit": "6f7f209",
+    "url": "http://localhost:8000",
+    "domain": "impostor",
+    "model": "qwen2.5:3b",
+    "nodes": [
+      "node-impostor"
+    ],
+    "c": 2,
+    "node_snapshots": [
+      {
+        "node": "node-impostor",
+        "active": 0,
+        "waiting": 0,
+        "max_concurrency": 2,
+        "max_queue": 32,
+        "total_admitted": 55,
+        "total_rejected": 0,
+        "total_abandoned": 0,
+        "healthy": true,
+        "ewma_ttft_ms": 356.8,
+        "selected": 14,
+        "failures": 0,
+        "failovers_from": 0
+      }
+    ],
+    "queue_policy_antes": "fifo",
+    "balance": "peak_ewma",
+    "maquina": {
+      "sistema": "Windows-10-10.0.26200-SP0",
+      "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+      "nucleos_logicos": 20,
+      "python": "3.11.9"
+    },
+    "ollama": {
+      "http://localhost:21434": "0.40.11"
+    },
+    "parametros": {
+      "domain": "impostor",
+      "fases": [
+        "bench",
+        "salas",
+        "fila"
+      ],
+      "clients": [
+        1,
+        2,
+        4,
+        8,
+        16
+      ],
+      "requests": 2,
+      "repeat": 5,
+      "max_tokens": 64,
+      "rooms": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "rooms_repeat": 2,
+      "discussion": 90,
+      "talk": 60,
+      "fila_repeat": 3,
+      "fila_duration": 60,
+      "games_log": null,
+      "rapido": false,
+      "out": "results"
+    },
+    "games_log": "C:\\Users\\mathe\\Desktop\\T2 - Redes\\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\\logs\\games.jsonl"
+  },
+  "bench": {
+    "file": "bench-20261121-224611-raw.csv",
+    "levels": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "repeats": 5,
+    "requests_per_client": 2,
+    "c": 2,
+    "params": {
+      "S1_s": 3.0179,
+      "TTFT1_s": 0.9034,
+      "Sc_s": 4.4232,
+      "TTFTc_s": 1.2686,
+      "tokens_per_request": 14.2,
+      "slowdown_c": 1.4656,
+      "throughput_cap_tok_s": 6.4207
+    },
+    "table": [
+      {
+        "clients": 1,
+        "reps": 5,
+        "ttft_mean": [
+          0.9037,
+          0.047
+        ],
+        "ttft_p50": [
+          0.9037,
+          0.047
+        ],
+        "ttft_p95": [
+          1.002,
+          0.07
+        ],
+        "queue_mean": [
+          0.0003,
+          0.0
+        ],
+        "throughput": [
+          4.6325,
+          0.8013
+        ],
+        "failed": 0
+      },
+      {
+        "clients": 2,
+        "reps": 5,
+        "ttft_mean": [
+          1.2691,
+          0.1589
+        ],
+        "ttft_p50": [
+          1.2403,
+          0.1972
+        ],
+        "ttft_p95": [
+          1.4707,
+          0.3445
+        ],
+        "queue_mean": [
+          0.0004,
+          0.0001
+        ],
+        "throughput": [
+          6.8653,
+          0.7763
+        ],
+        "failed": 0
+      },
+      {
+        "clients": 4,
+        "reps": 5,
+        "ttft_mean": [
+          4.7568,
+          0.3851
+        ],
+        "ttft_p50": [
+          5.2551,
+          0.6
+        ],
+        "ttft_p95": [
+          7.2921,
+          0.4994
+        ],
+        "queue_mean": [
+          3.5571,
+          0.2469
+        ],
+        "throughput": [
+          7.0106,
+          0.6877
+        ],
+        "failed": 0
+      },
+      {
+        "clients": 8,
+        "reps": 5,
+        "ttft_mean": [
+          12.3016,
+          0.9213
+        ],
+        "ttft_p50": [
+          15.0448,
+          1.4549
+        ],
+        "ttft_p95": [
+          17.8245,
+          1.6905
+        ],
+        "queue_mean": [
+          11.2733,
+          0.7761
+        ],
+        "throughput": [
+          6.9031,
+          0.7137
+        ],
+        "failed": 0
+      },
+      {
+        "clients": 16,
+        "reps": 5,
+        "ttft_mean": [
+          26.2151,
+          3.3893
+        ],
+        "ttft_p50": [
+          32.8537,
+          5.3425
+        ],
+        "ttft_p95": [
+          36.4709,
+          4.9675
+        ],
+        "queue_mean": [
+          25.67,
+          3.4286
+        ],
+        "throughput": [
+          7.2231,
+          0.087
+        ],
+        "failed": 0
+      }
+    ],
+    "pred_naive": {
+      "1": {
+        "service_s": 3.0179,
+        "wait_s": 0.0,
+        "ttft_s": 0.9034,
+        "throughput_tok_s": 4.7052
+      },
+      "2": {
+        "service_s": 3.0179,
+        "wait_s": 0.0,
+        "ttft_s": 0.9034,
+        "throughput_tok_s": 9.4104
+      },
+      "4": {
+        "service_s": 3.0179,
+        "wait_s": 2.2634,
+        "ttft_s": 3.1669,
+        "throughput_tok_s": 9.4104
+      },
+      "8": {
+        "service_s": 3.0179,
+        "wait_s": 6.7903,
+        "ttft_s": 7.6937,
+        "throughput_tok_s": 9.4104
+      },
+      "16": {
+        "service_s": 3.0179,
+        "wait_s": 15.8441,
+        "ttft_s": 16.7475,
+        "throughput_tok_s": 9.4104
+      }
+    },
+    "pred_calib": {
+      "1": {
+        "service_s": 3.0179,
+        "wait_s": 0.0,
+        "ttft_s": 0.9034,
+        "throughput_tok_s": 4.7052
+      },
+      "2": {
+        "service_s": 4.4232,
+        "wait_s": 0.0,
+        "ttft_s": 1.2686,
+        "throughput_tok_s": 6.4207
+      },
+      "4": {
+        "service_s": 4.4232,
+        "wait_s": 3.3174,
+        "ttft_s": 4.586,
+        "throughput_tok_s": 6.4207
+      },
+      "8": {
+        "service_s": 4.4232,
+        "wait_s": 9.9522,
+        "ttft_s": 11.2208,
+        "throughput_tok_s": 6.4207
+      },
+      "16": {
+        "service_s": 4.4232,
+        "wait_s": 23.2218,
+        "ttft_s": 24.4905,
+        "throughput_tok_s": 6.4207
+      }
+    },
+    "err_naive": 0.3567,
+    "err_calib": 0.0632,
+    "knee_clients": 4
+  },
+  "salas": {
+    "file": "rooms-20261121-225902-raw.csv",
+    "rows": [
+      {
+        "rooms": 1,
+        "games": 2,
+        "ai_msgs": 8,
+        "over_all": [
+          0.0,
+          0.0,
+          0.3244
+        ],
+        "over_first": [
+          0.0,
+          0.0,
+          0.6576
+        ],
+        "n_first": 2,
+        "med_queue_s": 0.0001,
+        "med_prefill_s": 2.0843,
+        "med_gen_s": 1.8877,
+        "med_total_s": 3.9721,
+        "p95_total_s": 5.3732,
+        "med_budget_s": 8.0692,
+        "ttft_p50_ms": 1944.25,
+        "winner_ai": 2,
+        "pred_first": 0.0
+      },
+      {
+        "rooms": 2,
+        "games": 4,
+        "ai_msgs": 17,
+        "over_all": [
+          0.3529,
+          0.1731,
+          0.587
+        ],
+        "over_first": [
+          0.25,
+          0.0456,
+          0.6994
+        ],
+        "n_first": 4,
+        "med_queue_s": 0.0001,
+        "med_prefill_s": 2.1081,
+        "med_gen_s": 2.78,
+        "med_total_s": 4.8882,
+        "p95_total_s": 11.7197,
+        "med_budget_s": 7.7229,
+        "ttft_p50_ms": 2290.45,
+        "winner_ai": 4,
+        "pred_first": 0.0
+      },
+      {
+        "rooms": 4,
+        "games": 8,
+        "ai_msgs": 33,
+        "over_all": [
+          0.4242,
+          0.2724,
+          0.5919
+        ],
+        "over_first": [
+          0.75,
+          0.4093,
+          0.9285
+        ],
+        "n_first": 8,
+        "med_queue_s": 0.0001,
+        "med_prefill_s": 3.4438,
+        "med_gen_s": 2.9376,
+        "med_total_s": 6.3815,
+        "p95_total_s": 18.3376,
+        "med_budget_s": 7.6523,
+        "ttft_p50_ms": 3410.1,
+        "winner_ai": 8,
+        "pred_first": 0.0
+      },
+      {
+        "rooms": 8,
+        "games": 16,
+        "ai_msgs": 28,
+        "over_all": [
+          0.8571,
+          0.6851,
+          0.943
+        ],
+        "over_first": [
+          1.0,
+          0.8064,
+          1.0
+        ],
+        "n_first": 16,
+        "med_queue_s": 20.0997,
+        "med_prefill_s": 5.2788,
+        "med_gen_s": 3.852,
+        "med_total_s": 29.2306,
+        "p95_total_s": 50.2008,
+        "med_budget_s": 9.776,
+        "ttft_p50_ms": 24073.45,
+        "winner_ai": 10,
+        "pred_first": 0.5
+      }
+    ],
+    "S_game_s": 3.9721,
+    "budget_s": 8.0692,
+    "k_star": 4.063,
+    "games_log": "C:\\Users\\mathe\\Desktop\\T2 - Redes\\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\\logs\\games.jsonl"
+  },
+  "fila": {
+    "file": "desempenho-fila-20261121-231508-summary.csv",
+    "table": [
+      {
+        "policy": "fifo",
+        "reps": 3,
+        "overrun": [
+          0.9297,
+          0.1519
+        ],
+        "inter_e2e_p50": [
+          12633.2,
+          2747.2568
+        ],
+        "inter_e2e_p95": [
+          15527.2667,
+          3743.6383
+        ],
+        "inter_queue_p50": [
+          9942.3333,
+          2474.4511
+        ],
+        "lote_e2e_p50": [
+          14471.5667,
+          3814.6124
+        ],
+        "lote_tok_s": [
+          8.9033,
+          0.6904
+        ]
+      },
+      {
+        "policy": "priority",
+        "reps": 3,
+        "overrun": [
+          0.6483,
+          0.3334
+        ],
+        "inter_e2e_p50": [
+          10798.2667,
+          3136.9908
+        ],
+        "inter_e2e_p95": [
+          14074.7,
+          1980.2526
+        ],
+        "inter_queue_p50": [
+          8000.0333,
+          2863.9571
+        ],
+        "lote_e2e_p50": [
+          14533.7333,
+          899.3361
+        ],
+        "lote_tok_s": [
+          8.8167,
+          0.5601
+        ]
+      }
+    ]
+  }
+}

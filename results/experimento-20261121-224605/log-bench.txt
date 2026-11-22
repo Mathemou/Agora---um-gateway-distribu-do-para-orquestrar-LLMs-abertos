@@ -1,0 +1,28 @@
+clientes=1   rep=0 ok=2   falhas=0   vazão=4.8 tok/s  TTFT p50=846 ms p95=904 ms
+clientes=1   rep=1 ok=2   falhas=0   vazão=4.9 tok/s  TTFT p50=899 ms p95=1004 ms
+clientes=1   rep=2 ok=2   falhas=0   vazão=3.7 tok/s  TTFT p50=950 ms p95=1037 ms
+clientes=1   rep=3 ok=2   falhas=0   vazão=4.4 tok/s  TTFT p50=920 ms p95=1040 ms
+clientes=1   rep=4 ok=2   falhas=0   vazão=5.4 tok/s  TTFT p50=904 ms p95=1024 ms
+clientes=2   rep=0 ok=4   falhas=0   vazão=6.4 tok/s  TTFT p50=1055 ms p95=1726 ms
+clientes=2   rep=1 ok=4   falhas=0   vazão=7.3 tok/s  TTFT p50=1204 ms p95=1253 ms
+clientes=2   rep=2 ok=4   falhas=0   vazão=7.4 tok/s  TTFT p50=1219 ms p95=1254 ms
+clientes=2   rep=3 ok=4   falhas=0   vazão=6.0 tok/s  TTFT p50=1495 ms p95=1818 ms
+clientes=2   rep=4 ok=4   falhas=0   vazão=7.3 tok/s  TTFT p50=1228 ms p95=1303 ms
+clientes=4   rep=0 ok=8   falhas=0   vazão=7.2 tok/s  TTFT p50=4746 ms p95=7420 ms
+clientes=4   rep=1 ok=8   falhas=0   vazão=6.7 tok/s  TTFT p50=5330 ms p95=7910 ms
+clientes=4   rep=2 ok=8   falhas=0   vazão=7.7 tok/s  TTFT p50=5120 ms p95=7175 ms
+clientes=4   rep=3 ok=8   falhas=0   vazão=6.3 tok/s  TTFT p50=5044 ms p95=6840 ms
+clientes=4   rep=4 ok=8   falhas=0   vazão=7.3 tok/s  TTFT p50=6034 ms p95=7115 ms
+clientes=8   rep=0 ok=16  falhas=0   vazão=6.3 tok/s  TTFT p50=15708 ms p95=18249 ms
+clientes=8   rep=1 ok=16  falhas=0   vazão=6.7 tok/s  TTFT p50=14831 ms p95=17030 ms
+clientes=8   rep=2 ok=16  falhas=0   vazão=6.6 tok/s  TTFT p50=15236 ms p95=18311 ms
+clientes=8   rep=3 ok=16  falhas=0   vazão=7.8 tok/s  TTFT p50=13181 ms p95=15983 ms
+clientes=8   rep=4 ok=16  falhas=0   vazão=7.0 tok/s  TTFT p50=16269 ms p95=19550 ms
+clientes=16  rep=0 ok=32  falhas=0   vazão=7.2 tok/s  TTFT p50=34577 ms p95=39451 ms
+clientes=16  rep=1 ok=32  falhas=0   vazão=7.3 tok/s  TTFT p50=38128 ms p95=40949 ms
+clientes=16  rep=2 ok=32  falhas=0   vazão=7.2 tok/s  TTFT p50=27248 ms p95=31209 ms
+clientes=16  rep=3 ok=32  falhas=0   vazão=7.1 tok/s  TTFT p50=29823 ms p95=33790 ms
+clientes=16  rep=4 ok=32  falhas=0   vazão=7.3 tok/s  TTFT p50=34492 ms p95=36956 ms
+
+CSV: C:\Users\mathe\Desktop\T2 - Redes\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\results\experimento-20261121-224605\bench-20261121-224611-raw.csv
+     C:\Users\mathe\Desktop\T2 - Redes\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\results\experimento-20261121-224605\bench-20261121-224611-summary.csv

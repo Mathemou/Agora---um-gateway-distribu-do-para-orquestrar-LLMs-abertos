@@ -1,0 +1,11 @@
+salas=1   rep=0 req IA=5    TTFT p50=2012.3 ms p95=2524.9 ms  e2e p50=3887.4 ms  estouros=0/4
+salas=1   rep=1 req IA=5    TTFT p50=1876.2 ms p95=3054.5 ms  e2e p50=3070.3 ms  estouros=0/4
+salas=2   rep=0 req IA=9    TTFT p50=2594.6 ms p95=6510.8 ms  e2e p50=5521.1 ms  estouros=4/8
+salas=2   rep=1 req IA=11   TTFT p50=1986.3 ms p95=3137.7 ms  e2e p50=4068.5 ms  estouros=2/9
+salas=4   rep=0 req IA=18   TTFT p50=3560.2 ms p95=10988.5 ms  e2e p50=6592.2 ms  estouros=7/18
+salas=4   rep=1 req IA=16   TTFT p50=3260.0 ms p95=14586.4 ms  e2e p50=5440.4 ms  estouros=7/15
+salas=8   rep=0 req IA=20   TTFT p50=24379.7 ms p95=36265.1 ms  e2e p50=29018.8 ms  estouros=11/14
+salas=8   rep=1 req IA=22   TTFT p50=23767.2 ms p95=40872.0 ms  e2e p50=27031.0 ms  estouros=13/14
+
+CSV: C:\Users\mathe\Desktop\T2 - Redes\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\results\experimento-20261121-224605\rooms-20261121-225902-raw.csv
+     C:\Users\mathe\Desktop\T2 - Redes\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\results\experimento-20261121-224605\rooms-20261121-225902-summary.csv

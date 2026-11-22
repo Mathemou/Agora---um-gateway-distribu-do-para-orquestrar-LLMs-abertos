@@ -104,6 +104,7 @@ O prompt de sistema fica idêntico durante a partida e a conversa só cresce no 
 | `impostor-claude` (opcional) | `node-claude` (API do Claude, na nuvem) | `claude-haiku-5-5` | Mesmo papel do `impostor`, com prompt ajustado · `temperature 1.0`, `max_tokens 60` |
 | `impostor-opencode` (opcional) | `node-opencode` (OpenCode Go, na nuvem) | `glm-5.3-flash` | Mesmo papel do `impostor` · `temperature 0.9`, `num_predict 48` |
 | `mestre` | `node-mestre` | `qwen2.5:0.5b` | Mediador da roda, frases curtas e leves, nunca revela a IA · `temperature 0.7`, `num_predict 60` |
+| `assistente` | `node-impostor` | `qwen2.5:3b` | Assistente de Redes pela API, no mesmo nó e modelo da IA: respostas longas (`num_predict 160`), sem corte na quebra de linha. É o tráfego "em lote" do experimento fifo × priority |
 
 Os modelos e as regras do jogo (tempo de discussão, rodadas, número de IAs, velocidade de "digitação") estão em [`config/gateway.yaml`](config/gateway.yaml) e no `.env`.
 
@@ -315,6 +316,9 @@ python client/bots.py --rooms 1 2 4 --bots 2 --discussion 60 --repeat 2
 
 # red team: roda os 32 ataques contra a IA e mede "antes × depois" dos filtros
 python client/red_team.py -d impostor impostor-opencode -n 1 --seed 7
+
+# experimento obrigatório inteiro (bench + salas + fila + gráficos), ver docs/roteiro-experimento.md
+python client/experimento.py            # --rapido para um ensaio de ~5 min
 
 # trilha Desempenho: balanceamento, failover e fila (ver a seção da trilha)
 python client/exp_desempenho.py balance -c 6 -r 4 --repeat 3
@@ -606,7 +610,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ a fazer
 - ✅ **1.11b Nó remoto opcional (API do Claude)** como comparação com o modelo aberto local; escolha por sala.
 - ✅ **1.12 Roteiro da demo M1** (5 min): [`docs/roteiro-demo-m1.md`](docs/roteiro-demo-m1.md), com checklist, falas, plano B e perguntas prováveis.
 - ✅ **1.13 Painel ao vivo** em **http://localhost:8000/painel**: vagas e fila de cada nó, TTFT/tokens/s da IA, vazão, "onde vai o tempo" de cada resposta e linha do tempo das requisições (escondida por padrão, porque durante a partida ela entrega a IA).
-- ⬜ **1.14 Commit + push** de tudo, para o Yan ter o código.
+- ✅ **1.14 Commit + push** de tudo, para o Yan ter o código.
 
 ### M2 — Incrementos + roteiro do experimento (fim do 2º terço)
 
@@ -630,16 +634,16 @@ A dupla precisa de incrementos em **pelo menos duas trilhas diferentes**. Com o 
 - ⬜ 2.10 IA que imita o estilo dos humanos da própria sala (tamanho de mensagem, gírias, erros), medindo o efeito na taxa de detecção.
 
 **Experimento**
-- ⬜ 2.11 Roteiro escrito: hipótese, previsão pelo modelo de fila, variáveis, número de repetições, ambiente fixado (versões, CPU, memória).
+- ✅ 2.11 Roteiro escrito ([`docs/roteiro-experimento.md`](docs/roteiro-experimento.md)): hipóteses, previsão pelo modelo de fila registrada **antes** de medir, variáveis, repetições, ambiente e validação do método no nó falso (erro de 1 %).
 
 ### M3 — Entrega final
 
-- ⬜ 3.1 **Experimento obrigatório**: variar clientes simultâneos (1, 2, 4, 8, 16) com `bench.py` e medir TTFT e vazão agregada, com repetições e intervalos de confiança.
-- ⬜ 3.2 **Versão "jogo" do experimento** com `bots.py`: 1, 2, 4, 8 salas simultâneas, medindo TTFT da IA e a fração de falas que **estouram o orçamento de digitação** (o ponto em que a IA começa a se denunciar pelo tempo).
-- ⬜ 3.3 **Previsão por modelo de fila** antes de medir (ver nota abaixo) e comparação previsão × medição em gráfico.
-- ⬜ 3.4 Resposta à **pergunta-desafio** com os nossos dados (ver abaixo).
-- ⬜ 3.5 Gráficos gerados por script a partir dos CSVs (`results/`) e de `logs/games.jsonl`, reproduzíveis.
-- ⬜ 3.6 Relatório curto (até 6 páginas) + demonstração final (partida ao vivo com a turma?).
+- ✅ 3.1 **Experimento obrigatório** (`python client/experimento.py`, ≈ 40 min; rodada de 21/11 em `results/experimento-20261121-224605/`): variar clientes simultâneos (1, 2, 4, 8, 16) com `bench.py` e medir TTFT e vazão agregada, com repetições e intervalos de confiança.
+- ✅ 3.2 **Versão "jogo" do experimento** (fase 2 do `experimento.py`) com `bots.py`: 1, 2, 4, 8 salas simultâneas, medindo TTFT da IA e a fração de falas que **estouram o orçamento de digitação** (o ponto em que a IA começa a se denunciar pelo tempo).
+- ✅ 3.3 **Previsão por modelo de fila** (no roteiro; a simulação fica em `client/analise_experimento.py`) antes de medir (ver nota abaixo) e comparação previsão × medição em gráfico.
+- ✅ 3.4 Resposta à **pergunta-desafio** (no relatório, com os dados de 28/10 e da rodada de 21/11) com os nossos dados (ver abaixo).
+- ✅ 3.5 Gráficos gerados por script (`client/analise_experimento.py` → `fig-*.png` + `resumo.md`) a partir dos CSVs (`results/`) e de `logs/games.jsonl`, reproduzíveis.
+- ✅ 3.6 Relatório curto (6 páginas, com os resultados da rodada no Ollama) · ⬜ demonstração final (até 6 páginas) + demonstração final (partida ao vivo com a turma?).
 - ⬜ 3.7 (Bônus) **Integração** com outro projeto: por exemplo, partidas por voz com o Projeto 2 (transcrição das falas vira o chat), ou o Projeto 3 (P2P) distribuindo os pesos dos modelos entre os nós.
 
 ### Nota para o experimento: o modelo de fila

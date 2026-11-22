@@ -1,0 +1,72 @@
+{
+  "data": "2026-11-21T22:46:05",
+  "commit": "6f7f209",
+  "url": "http://localhost:8000",
+  "domain": "impostor",
+  "model": "qwen2.5:3b",
+  "nodes": [
+    "node-impostor"
+  ],
+  "c": 2,
+  "node_snapshots": [
+    {
+      "node": "node-impostor",
+      "active": 0,
+      "waiting": 0,
+      "max_concurrency": 2,
+      "max_queue": 32,
+      "total_admitted": 55,
+      "total_rejected": 0,
+      "total_abandoned": 0,
+      "healthy": true,
+      "ewma_ttft_ms": 356.8,
+      "selected": 14,
+      "failures": 0,
+      "failovers_from": 0
+    }
+  ],
+  "queue_policy_antes": "fifo",
+  "balance": "peak_ewma",
+  "maquina": {
+    "sistema": "Windows-10-10.0.26200-SP0",
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "nucleos_logicos": 20,
+    "python": "3.11.9"
+  },
+  "ollama": {
+    "http://localhost:21434": "0.40.11"
+  },
+  "parametros": {
+    "domain": "impostor",
+    "fases": [
+      "bench",
+      "salas",
+      "fila"
+    ],
+    "clients": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "requests": 2,
+    "repeat": 5,
+    "max_tokens": 64,
+    "rooms": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "rooms_repeat": 2,
+    "discussion": 90,
+    "talk": 60,
+    "fila_repeat": 3,
+    "fila_duration": 60,
+    "games_log": null,
+    "rapido": false,
+    "out": "results"
+  },
+  "games_log": "C:\\Users\\mathe\\Desktop\\T2 - Redes\\Agora---um-gateway-distribu-do-para-orquestrar-LLMs-abertos\\logs\\games.jsonl"
+}

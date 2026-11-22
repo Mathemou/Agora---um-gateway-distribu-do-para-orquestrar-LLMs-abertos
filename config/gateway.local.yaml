@@ -141,6 +141,21 @@ domains:
       num_predict: 48
       stop: ["\n"]
 
+  # Assistente de Redes pela API: mesmo nó e mesmo modelo da IA impostora (o Ollama
+  # serve os dois sem carregar outro modelo), com respostas longas e sem corte na
+  # quebra de linha. É o tráfego "em lote" que disputa o nó com as falas da IA no
+  # experimento fifo × priority (client/exp_desempenho.py fila --batch-domain assistente).
+  assistente:
+    description: "Assistente de Redes (API): respostas longas, no mesmo nó da IA"
+    node: node-impostor
+    model: ${MODEL_IMPOSTOR:-qwen2.5:3b}
+    system_prompt: |
+      Você é o assistente da disciplina de Redes de Computadores da UFES. Responda em português do Brasil, de forma didática e completa.
+    options:
+      temperature: 0.7
+      num_ctx: 2048
+      num_predict: 160
+
   mestre:
     description: "O Mestre: media a partida e faz a pergunta de cada rodada"
     node: node-mestre

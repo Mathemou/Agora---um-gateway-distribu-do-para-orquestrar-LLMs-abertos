@@ -245,7 +245,7 @@ async def exp_fila(a) -> None:
                 async def batch(cid: int):
                     while time.perf_counter() < stop_at:
                         ts = time.perf_counter() - t0
-                        r = await ask(client, a.url, body(a.domain, a.batch_tokens, "api"))
+                        r = await ask(client, a.url, body(a.batch_domain or a.domain, a.batch_tokens, "api"))
                         rows.append(row_of(r, queue_policy=qp, rep=rep, classe="lote", client_id=cid,
                                            t_start_s=round(ts, 3)))
 
@@ -331,6 +331,8 @@ def main() -> None:
     q.add_argument("--policies", nargs="+", default=["fifo", "priority"])
     q.add_argument("--interactive", type=int, default=2, help="clientes imitando a fala da IA")
     q.add_argument("--batch", type=int, default=4, help="clientes de API com respostas longas")
+    q.add_argument("--batch-domain", default=None,
+                   help="domínio dos pedidos em lote, no MESMO nó (ex.: assistente); padrão: o mesmo -d")
     q.add_argument("--interactive-tokens", type=int, default=16)
     q.add_argument("--batch-tokens", type=int, default=120)
     q.add_argument("--think-s", type=float, default=2.0, help="intervalo médio entre falas da IA")
