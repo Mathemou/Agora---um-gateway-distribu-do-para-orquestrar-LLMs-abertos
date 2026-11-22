@@ -1,31 +1,31 @@
 # Roteiro do experimento (M2)
 
-Ágora — Jogo da Imitação · Projeto 1 (Gateway distribuído de LLMs abertos)
-Matheus Santos de Moura e Yan Maia · roteiro e previsão escritos em 21/11/2026, **antes** das medições
+Ágora, Jogo da Imitação · Projeto 1 (Gateway distribuído de LLMs abertos)
+Matheus Santos de Moura e Yan Maia · roteiro e previsão escritos em 21/11/2026, antes das medições
 
 Este roteiro fixa hipótese, variáveis, repetições e ambiente, e registra a previsão do
-modelo de fila **antes** de medir, como pede a proposta. As medições saem de um comando só
+modelo de fila antes de medir, como pede a proposta. As medições saem de um comando só
 (`python client/experimento.py`), que grava o ambiente, roda as três fases e gera os
 gráficos e as tabelas (`resumo.md`) a partir dos CSVs.
 
 ## 1. Pergunta e hipóteses
 
-**Pergunta.** Em que ponto a fila do nó de inferência faz o TTFT disparar, e a partir de
+Pergunta. Em que ponto a fila do nó de inferência faz o TTFT disparar, e a partir de
 quantas partidas simultâneas a IA impostora começa a se denunciar pelo tempo de resposta?
 
-- **H1 (experimento obrigatório).** Com `c` vagas no nó (`OLLAMA_NUM_PARALLEL = 2`), o TTFT
-  fica perto do tempo de prefill enquanto N ≤ c e cresce **linearmente** com N a partir daí.
+- H1 (experimento obrigatório). Com `c` vagas no nó (`OLLAMA_NUM_PARALLEL = 2`), o TTFT
+  fica perto do tempo de prefill enquanto N ≤ c e cresce linearmente com N a partir daí.
   Já a vazão agregada (tokens/s) para de crescer em ≈ c · tokens / S.
-- **H2 (CPU).** As `c` gerações paralelas dividem os mesmos núcleos. Por isso o tempo de serviço
-  S com 2 pedidos juntos é **maior** que com 1, e o ganho de vazão de N = 1 para N = 2 fica
-  **abaixo de 2×**. A previsão "ingênua" (S constante) vai **subestimar** o TTFT para N > c.
-- **H3 (versão jogo).** No início de cada rodada, as IAs de todas as salas pedem a fala ao
+- H2 (CPU). As `c` gerações paralelas dividem os mesmos núcleos. Por isso o tempo de serviço
+  S com 2 pedidos juntos é maior que com 1, e o ganho de vazão de N = 1 para N = 2 fica
+  abaixo de 2×. A previsão "ingênua" (S constante) vai subestimar o TTFT para N > c.
+- H3 (versão jogo). No início de cada rodada, as IAs de todas as salas pedem a fala ao
   mesmo tempo (rajada). Com k salas, a i-ésima IA recebe o texto em ≈ (⌊i/c⌋ + 1) · S. Ela
   estoura o orçamento de digitação B ("lendo" + caracteres ÷ velocidade) quando isso passa de
-  B. O estouro começa em **k\* ≈ c · B / S** salas.
-- **H4 (política de fila).** Com `queue.policy = priority`, as falas da IA passam na frente
+  B. O estouro começa em k\* ≈ c · B / S salas.
+- H4 (política de fila). Com `queue.policy = priority`, as falas da IA passam na frente
   dos pedidos longos da API no mesmo nó. A fração de falas que estouram e a espera delas na
-  fila **caem**. Os pedidos em lote ficam um pouco mais lentos e a vazão total do nó não muda,
+  fila caem. Os pedidos em lote ficam um pouco mais lentos e a vazão total do nó não muda,
   porque o trabalho é o mesmo, só reordenado.
 
 ## 2. Previsão (registrada antes de medir)
@@ -34,14 +34,14 @@ quantas partidas simultâneas a IA impostora começa a se denunciar pelo tempo d
 
 | Fonte | Modelo | Medida |
 | --- | --- | --- |
-| `logs/requests.jsonl`, 17 falas da IA em partidas reais (28/10) | qwen2.5:3b | prefill ≈ 2,5 s para ≈ 680 tokens de contexto (≈ 275 tokens/s); 14 tokens por fala a ≈ 6,4 tokens/s; **S ≈ 4,5 s** por fala |
-| `logs/games.jsonl`, 10 falas da IA em 2 partidas | qwen2.5:3b | do gatilho ao texto pronto: **4,65 s** (mediana); orçamento de digitação **B ≈ 8,6 s** (mediana); 2 de 10 falas já estouraram com 1 sala |
+| `logs/requests.jsonl`, 17 falas da IA em partidas reais (28/10) | qwen2.5:3b | prefill ≈ 2,5 s para ≈ 680 tokens de contexto (≈ 275 tokens/s); 14 tokens por fala a ≈ 6,4 tokens/s; S ≈ 4,5 s por fala |
+| `logs/games.jsonl`, 10 falas da IA em 2 partidas | qwen2.5:3b | do gatilho ao texto pronto: 4,65 s (mediana); orçamento de digitação B ≈ 8,6 s (mediana); 2 de 10 falas já estouraram com 1 sala |
 | `results/bench-20261027-*` (1 cliente, 3 rep.) | qwen2.5:0.5b | TTFT ≈ 0,1 s, ≈ 15 tokens/s |
-| `docker-compose.yml` / `.env` | — | `NODE_PARALLEL = 2` → **c = 2**; nó da IA com 4 CPUs e 4 GB |
+| `docker-compose.yml` / `.env` | — | `NODE_PARALLEL = 2` → c = 2; nó da IA com 4 CPUs e 4 GB |
 
 No experimento obrigatório o contexto é menor do que numa partida: o prompt de sistema do
 `impostor` mais uma pergunta curta dá ≈ 300 tokens, e o prefixo fica em cache entre pedidos.
-A estimativa é **S₁ ≈ 3,0 s** (1 cliente), TTFT de serviço ≈ 0,8 s, ≈ 14 tokens por resposta
+A estimativa é S₁ ≈ 3,0 s (1 cliente), TTFT de serviço ≈ 0,8 s, ≈ 14 tokens por resposta
 (o domínio para na quebra de linha) e r = 2 pedidos por cliente.
 
 ### H1 e H2: TTFT e vazão × clientes
@@ -61,12 +61,12 @@ sistema (`client/analise_experimento.py`, função `simulate_closed`).
 
 O joelho fica em N = 2 → 4. Daí em diante o TTFT cresce ≈ S/c por cliente a mais
 (≈ 1,1 s a 1,7 s por cliente). A vazão fica parada entre 6 e 9 tokens/s. A análise desenha as
-duas curvas: a **ingênua**, com S medido com 1 cliente, e a **calibrada**, com S medido com 2
+duas curvas: a ingênua, com S medido com 1 cliente, e a calibrada, com S medido com 2
 em paralelo. A distância entre elas mede o efeito da CPU compartilhada (H2).
 
 ### H3: salas simultâneas × estouro do orçamento
 
-Com S ≈ 4,65 s e B ≈ 8,6 s: **k\* ≈ 2 × 8,6 / 4,65 ≈ 3,7 salas**.
+Com S ≈ 4,65 s e B ≈ 8,6 s: k\* ≈ 2 × 8,6 / 4,65 ≈ 3,7 salas.
 
 | salas | 1ª fala da rodada que estoura (previsto) | raciocínio |
 | --- | --- | --- |
@@ -101,12 +101,12 @@ total muda menos de 10 %.
 
 ## 4. Repetições e estatística
 
-- Clientes: **5 repetições** por nível, cada uma com N clientes × 2 pedidos. A métrica de
+- Clientes: 5 repetições por nível, cada uma com N clientes × 2 pedidos. A métrica de
   cada repetição é a média (e o p50/p95) dos pedidos. O relatório mostra a média entre as
-  repetições com **IC 95 % (t de Student)**.
-- Salas: **2 repetições** por nível. Estouro é proporção, então o IC 95 % é o de **Wilson**,
+  repetições com IC 95 % (t de Student).
+- Salas: 2 repetições por nível. Estouro é proporção, então o IC 95 % é o de Wilson,
   que funciona com poucas amostras e com 0 % ou 100 %.
-- Fila: **3 repetições** de 60 s por política, com IC 95 % (t).
+- Fila: 3 repetições de 60 s por política, com IC 95 % (t).
 - Os níveis rodam em ordem crescente e um pedido de aquecimento é descartado antes, para
   carregar o modelo na memória.
 
@@ -137,20 +137,20 @@ O resultado vai para `results/experimento-<data>/`: CSVs brutos e resumidos de c
 
 O pipeline inteiro (carga, coleta, simulação do modelo, IC e gráficos) foi conferido com o
 nó falso (`agora.fake_node`), que tem tempo de serviço determinístico (c = 2, S ≈ 2,3 s). A
-simulação acertou o TTFT medido com **erro médio de 1 %** para N > c (N = 4, 8, 16) e a vazão
+simulação acertou o TTFT medido com erro médio de 1 % para N > c (N = 4, 8, 16) e a vazão
 saturou em 56,6 tokens/s contra 56,5 previstos. Com o nó falso calibrado nos tempos do 3b
-(prefill 2,5 s), 6 salas fizeram **83 %** das primeiras falas estourarem (previsto: 67 %). Isso
+(prefill 2,5 s), 6 salas fizeram 83 % das primeiras falas estourarem (previsto: 67 %). Isso
 mostra que o mecanismo de H3 aparece e que a previsão fica do lado otimista, porque ignora as
-falas de menção que entram na mesma fila. Esses números validam o método e **não** entram como
+falas de menção que entram na mesma fila. Esses números validam o método e não entram como
 resultado: os resultados são os do Ollama.
 
 ## 8. Ameaças à validade
 
-- **Cache de prefixo do Ollama:** prompts repetidos têm prefill menor que numa partida real.
+- Cache de prefixo do Ollama: prompts repetidos têm prefill menor que numa partida real.
   Por isso a versão jogo usa partidas de verdade, com o contexto crescendo.
-- **Aquecimento térmico da CPU:** a ordem crescente dos níveis pode somar lentidão térmica
+- Aquecimento térmico da CPU: a ordem crescente dos níveis pode somar lentidão térmica
   aos níveis altos. As repetições e o IC mostram se isso pesou.
-- **Bots não são humanos:** eles falam a cada 4–10 s e votam ao acaso. Por isso "a IA venceu"
+- Bots não são humanos: eles falam a cada 4–10 s e votam ao acaso. Por isso "a IA venceu"
   não é métrica. A métrica da versão jogo é só o tempo (estouro do orçamento).
-- **Um nó só:** o balanceamento entre duas máquinas (trilha Desempenho) é medido à parte, com
+- Um nó só: o balanceamento entre duas máquinas (trilha Desempenho) é medido à parte, com
   `client/exp_desempenho.py balance`.
