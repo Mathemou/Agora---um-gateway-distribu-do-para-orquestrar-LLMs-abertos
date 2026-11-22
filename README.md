@@ -4,6 +4,8 @@ Trabalho da disciplina **Redes de Computadores** (UFES · Prof. Magnos Martinell
 
 **Dupla:** Matheus Santos de Moura · Yan Maia
 
+**Relatório final:** [`docs/relatorio.pdf`](docs/relatorio.pdf) (6 páginas) · roteiro do experimento: [`docs/roteiro-experimento.md`](docs/roteiro-experimento.md)
+
 ---
 
 ## A ideia
