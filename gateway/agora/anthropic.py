@@ -29,7 +29,7 @@ API_VERSION = "2023-06-01"
 def _headers(api_key_env: str) -> dict[str, str]:
     key = os.environ.get(api_key_env, "").strip()
     if not key:
-        raise NodeError(f"defina a variável {api_key_env} com a sua chave da API do Claude")
+        raise NodeError(f"defina a variável {api_key_env} com a sua chave da API do Claude", fault=False)
     return {"x-api-key": key, "anthropic-version": API_VERSION, "content-type": "application/json"}
 
 
@@ -70,7 +70,8 @@ async def stream_chat(
                                  json=_payload(model, messages, options)) as resp:
             if resp.status_code != 200:
                 body = (await resp.aread()).decode(errors="replace")
-                raise NodeError(f"API do Claude respondeu HTTP {resp.status_code}: {body[:300]}")
+                raise NodeError(f"API do Claude respondeu HTTP {resp.status_code}: {body[:300]}",
+                               status=resp.status_code)
             event = ""
             async for line in resp.aiter_lines():
                 if line.startswith("event:"):

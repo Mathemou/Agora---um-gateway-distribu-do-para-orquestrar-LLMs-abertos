@@ -10,7 +10,22 @@ import httpx
 
 
 class NodeError(Exception):
-    """Falha ao falar com o nó de inferência."""
+    """Falha ao falar com o nó de inferência.
+
+    `fault` diz se a culpa é do NÓ (caiu, travou, sobrecarregado: HTTP 5xx/429, conexão
+    recusada ou cortada) ou da REQUISIÇÃO (modelo inexistente, chave ausente: HTTP 4xx).
+    Só falha de nó conta para a saúde do nó e dispara o failover para outro nó.
+    """
+
+    def __init__(self, message: str, *, status: int | None = None, fault: bool | None = None):
+        super().__init__(message)
+        self.status = status
+        self.fault = fault if fault is not None else is_node_fault(status)
+
+
+def is_node_fault(status: int | None) -> bool:
+    """Sem status (rede) ou 5xx/429/408 = problema do nó; demais 4xx = problema do pedido."""
+    return status is None or status >= 500 or status in (408, 429)
 
 
 async def stream_chat(
@@ -37,7 +52,7 @@ async def stream_chat(
         async with client.stream("POST", f"{base_url}/api/chat", json=payload) as resp:
             if resp.status_code != 200:
                 body = (await resp.aread()).decode(errors="replace")
-                raise NodeError(f"nó respondeu HTTP {resp.status_code}: {body[:300]}")
+                raise NodeError(f"nó respondeu HTTP {resp.status_code}: {body[:300]}", status=resp.status_code)
             async for line in resp.aiter_lines():
                 if not line.strip():
                     continue

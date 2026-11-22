@@ -1,0 +1,5 @@
+# HTTPS automático para o endereço em DOMAIN (Let's Encrypt). O reverse_proxy do
+# Caddy repassa WebSocket (o jogo) e SSE (/v1/chat) sem configuração extra.
+{$DOMAIN} {
+	reverse_proxy gateway:8000
+}

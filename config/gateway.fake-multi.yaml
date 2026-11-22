@@ -1,0 +1,61 @@
+# Trilha Desempenho com nós FALSOS (sem LLM): três nós "impostor", um deles mais lento.
+# Dá para testar balanceamento, failover e prioridade na fila em qualquer máquina.
+#
+#   (dentro de gateway/, um terminal para cada nó)
+#   python -m agora.fake_node --port 11435 --parallel 1
+#   python -m agora.fake_node --port 11436 --parallel 1
+#   python -m agora.fake_node --port 11437 --parallel 1 --slow 3      # nó lento
+#   (na raiz)
+#   GATEWAY_CONFIG=config/gateway.fake-multi.yaml uvicorn agora.main:create_app --factory --app-dir gateway --port 8000
+#
+# Derrubar um nó no meio de uma resposta (sem reiniciar nada):
+#   curl -X POST localhost:11436/_fault -d '{"mode": "kill", "after_tokens": 5}'
+#   curl -X POST localhost:11436/_fault -d '{"mode": "none"}'      (volta ao normal)
+
+metrics_log: logs/requests-fake-multi.jsonl
+keep_alive: "5m"
+
+nodes:
+  node-a:
+    url: http://127.0.0.1:11435
+    max_concurrency: 1
+    max_queue: 64
+  node-b:
+    url: http://127.0.0.1:11436
+    max_concurrency: 1
+    max_queue: 64
+  node-c:
+    url: http://127.0.0.1:11437
+    max_concurrency: 1
+    max_queue: 64
+
+domains:
+  impostor:
+    description: IA impostora (3 nós falsos)
+    nodes: ${IMPOSTOR_NODES:-node-a, node-b, node-c}
+    model: qwen2.5:1.5b
+    system_prompt: Você é o jogador {alias}. Outros jogadores são {others}.
+    options: {num_predict: 20}
+  mestre:
+    description: O Mestre (divide o nó A com a IA, para a fila com prioridade fazer diferença)
+    node: node-a
+    model: qwen2.5:0.5b
+    system_prompt: Você é o Mestre do Jogo da Imitação.
+    options: {num_predict: 40}
+
+balance:
+  policy: ${BALANCE_POLICY:-least_queue}
+  failover: true
+  health_interval_s: 2
+  fail_threshold: 2
+  stall_timeout_s: 3
+
+queue:
+  policy: ${QUEUE_POLICY:-fifo}
+
+game:
+  min_players: ${GAME_MIN_PLAYERS:-3}
+  discussion_s: ${GAME_DISCUSSION_S:-90}
+  vote_s: 30
+  reveal_s: 6
+  log_path: logs/games-fake-multi.jsonl

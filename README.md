@@ -262,6 +262,45 @@ export GATEWAY_CONFIG=config/gateway.fake.yaml   # PowerShell: $env:GATEWAY_CONF
 uvicorn agora.main:create_app --factory --app-dir gateway --port 8000
 ```
 
+### Opção D — vários nós (trilha Desempenho)
+
+Com nós falsos (qualquer máquina), três nós, um deles 3× mais lento:
+
+```bash
+# dentro de gateway/, um terminal para cada nó
+python -m agora.fake_node --port 11435
+python -m agora.fake_node --port 11436
+python -m agora.fake_node --port 11437 --slow 3
+# na raiz
+export GATEWAY_CONFIG=config/gateway.fake-multi.yaml   # PowerShell: $env:GATEWAY_CONFIG="config/gateway.fake-multi.yaml"
+uvicorn agora.main:create_app --factory --app-dir gateway --port 8000
+# derrubar o nó B no meio das respostas (e depois trazer de volta)
+curl -X POST localhost:11436/_fault -d '{"mode": "kill", "after_tokens": 5}'
+curl -X POST localhost:11436/_fault -d '{"mode": "none"}'
+```
+
+Com as duas máquinas da dupla:
+
+1. Na máquina do Yan, o Ollama aceita conexões da rede: `OLLAMA_HOST=0.0.0.0 ollama serve`
+   (e a porta 11434 liberada no firewall), com o mesmo modelo baixado.
+2. Na máquina do gateway, no `.env`:
+   `IMPOSTOR_NODES=node-impostor, node-impostor-2` e
+   `NODE_IMPOSTOR2_URL=http://<IP do Yan>:11434`.
+3. Confira em `/health` que os dois nós estão `up` e, em `/painel`, as falas se
+   dividindo entre eles.
+
+### Opção E — na nuvem (VM gratuita, IA pelas APIs)
+
+Para ter um link público fixo, a VM roda só o gateway e o Caddy (HTTPS); a IA e o Mestre
+usam o Groq, com o OpenCode Go de reserva (`config/gateway.cloud.yaml`). A API pede o token
+`AGORA_API_TOKEN`; o jogo continua aberto. Passo a passo completo (Oracle Cloud Always Free):
+[`docs/deploy-nuvem.md`](docs/deploy-nuvem.md).
+
+```bash
+cp .env.cloud.example .env    # chaves, token e DOMAIN
+docker compose -f docker-compose.cloud.yml up -d --build
+```
+
 ### Clientes de linha de comando
 
 ```bash
@@ -277,7 +316,11 @@ python client/bots.py --rooms 1 2 4 --bots 2 --discussion 60 --repeat 2
 # red team: roda os 32 ataques contra a IA e mede "antes × depois" dos filtros
 python client/red_team.py -d impostor impostor-opencode -n 1 --seed 7
 
-# testes automáticos (fila, gateway, regras do jogo, WebSocket)
+# trilha Desempenho: balanceamento, failover e fila (ver a seção da trilha)
+python client/exp_desempenho.py balance -c 6 -r 4 --repeat 3
+python client/plot_desempenho.py
+
+# testes automáticos (fila, gateway, regras do jogo, WebSocket, balanceamento, failover)
 pytest
 ```
 
@@ -306,6 +349,7 @@ gateway/agora/
   attacks.py      bateria fixa de 32 ataques do "red team"
   security.py     filtros de defesa por regras: detectar/neutralizar, autoentrega, obediência
   node_queue.py   fila por nó com limite de concorrência (política plugável)
+  balancer.py     escolha do nó (round-robin, menor fila, menor latência, latência × carga), saúde dos nós
   ollama.py       cliente da API de streaming do Ollama
   anthropic.py    cliente da API do Claude (stream SSE → mesmo formato do Ollama)
   openai_compat.py cliente de APIs compatíveis com a OpenAI: Groq, OpenRouter, Cerebras, LM Studio
@@ -321,10 +365,12 @@ client/
   bots.py         bots "humanos" em N salas simultâneas (experimento do jogo) → CSV
   lab_impostor.py bateria fixa de cenários para calibrar o disfarce da IA → CSV
   red_team.py     red team: roda os 32 ataques e mede "antes × depois" dos filtros → CSV
-config/           gateway.yaml (Docker) · gateway.local.yaml · gateway.fake.yaml
-tests/            fila, gateway, regras do jogo e WebSocket (pytest)
+  exp_desempenho.py experimentos da trilha Desempenho (balance, failover, fila) → CSV
+  plot_desempenho.py gráficos desses experimentos → PNG
+config/           gateway.yaml (Docker) · gateway.local.yaml · gateway.fake.yaml · gateway.fake-multi.yaml (3 nós falsos) · gateway.cloud.yaml + Caddyfile (nuvem)
+tests/            fila, gateway, regras do jogo, WebSocket, segurança e desempenho (pytest)
 logs/             requests.jsonl (cada requisição ao LLM) · games.jsonl (cada partida)
-docs/             roteiro-demo-m1.md
+docs/             roteiro-demo-m1.md · deploy-nuvem.md (VM na Oracle)
 ```
 
 ---
@@ -399,6 +445,143 @@ A comparação com a nuvem (`glm-5.3-flash`) fica para quando houver créditos d
 
 ---
 
+## Trilha de Desempenho — balanceamento, failover e fila
+
+A IA impostora tem um prazo: cada fala precisa ficar pronta dentro do **orçamento de
+digitação** (tempo "lendo" + tempo "digitando"). Com várias salas, um nó só vira gargalo.
+A trilha espalha as falas por **vários nós** (por exemplo, o Ollama de cada máquina da
+dupla), tira do pool o nó que cai, **refaz a fala em outro nó quando o nó cai no meio da
+resposta** e pode dar **prioridade na fila** para a fala da IA.
+
+### Vários nós por domínio (`config.py`, `balancer.py`)
+
+Um domínio pode ter um pool de nós: `nodes: [node-impostor, node-impostor-2]` (ou
+`IMPOSTOR_NODES=node-impostor, node-impostor-2` no `.env`). `node:` continua valendo
+para um nó só. A cada requisição o `Balancer` ordena o pool e o gateway reserva lugar
+no primeiro nó com fila livre. Se um nó lotou, tenta o próximo antes de responder 503.
+
+| Política | Como escolhe | Observação |
+| --- | --- | --- |
+| `round_robin` | um de cada vez | referência; ignora o estado dos nós |
+| `least_queue` | menor (atendendo + esperando) / vagas | reage na hora à carga |
+| `least_latency` | menor TTFT de serviço (média móvel exponencial, α = 0,3) | **faz manada**: manda tudo para o nó "mais rápido" até ele lotar, e um nó que parou de receber tráfego nunca tem a média atualizada |
+| `peak_ewma` | TTFT médio × (carga + 1) | estimativa do TTFT que a requisição terá *naquele* nó (fila + serviço); ideia do *peak EWMA* do Finagle/Linkerd |
+
+O TTFT de serviço é medido **da vaga concedida até o 1º token**, sem a espera na fila do
+gateway. Com a fila incluída, a média de um nó rápido subia quando ele enchia e ele era
+abandonado para sempre (foi o que aconteceu na primeira versão).
+
+### Saúde dos nós
+
+- **Passiva:** `fail_threshold` (2) falhas seguidas de requisições tiram o nó do pool.
+  Só contam falhas do **nó** (conexão recusada/cortada, HTTP 5xx/429, nó travado). Erro
+  do **pedido** (modelo inexistente, HTTP 4xx) não derruba o nó nem dispara failover.
+- **Ativa:** `GET /api/tags` em cada Ollama a cada `health_interval_s` (5 s). O nó volta
+  ao pool quando o health check responde. Nós remotos (Groq, Claude) não são sondados
+  (gastaria o limite de taxa); voltam a ser tentados depois de `down_cooldown_s`.
+- **Nó travado:** stream parado por `stall_timeout_s` (30 s) depois do 1º token conta
+  como falha do nó.
+- Se **todos** os nós do pool estiverem fora, o gateway tenta mesmo assim.
+
+### Failover no meio da resposta (`pipeline.py`)
+
+*O que acontece com o streaming em curso?* Quando o nó cai, o gateway libera a vaga, entra
+na fila de outro nó (o de **menor fila**, seja qual for a política) com a **mesma chave de
+prioridade** (não volta para o fim da fila) e a resposta **recomeça do zero** no nó novo.
+O cliente recebe o evento SSE `failover` com `discard_tokens` (quantos tokens já recebidos
+deve descartar), e o `done` traz `failovers`, `wasted_tokens`, `nodes_path` (`a>b`) e
+`recovery_ms` (da falha até o 1º token no nó novo).
+
+- **Na API**, o usuário vê o texto "voltar" e recomeçar.
+- **No jogo**, a fala da IA não é transmitida token a token aos jogadores, então o
+  descarte é invisível e o custo aparece só como tempo (pode estourar o orçamento de
+  digitação). A narração do Mestre, que é transmitida, é substituída pela versão final
+  no `narrator_end`.
+
+A alternativa (continuar de onde parou, mandando o texto parcial como prefixo para o nó
+novo) economizaria tokens, mas depende de cada API aceitar *prefill* do assistente, e o
+nó novo não tem o cache do prompt. Recomeçar é simples e igual para Ollama, Groq e Claude.
+
+### Prioridade na fila (`queue.policy`)
+
+- **`fifo`:** a chave da fila é a hora de chegada.
+- **`priority`:** a chave é `chegada + atraso da classe`, um "prazo virtual". Os atrasos
+  são: fala da IA 0 s, API 2 s, Mestre 4 s e aquecimento 8 s. A fala da IA passa na frente
+  de um Mestre que chegou até 4 s antes, mas não de um que já espera mais do que isso.
+  Esse **envelhecimento** evita inanição sem precisar de uma fila por classe.
+
+### Trocar a política sem reiniciar
+
+```bash
+curl localhost:8000/v1/balancer                       # políticas + saúde de cada nó
+curl -X POST localhost:8000/v1/balancer -H 'Content-Type: application/json' \
+     -d '{"policy": "least_queue", "queue_policy": "priority", "failover": true, "reset": true}'
+```
+
+O painel (`/painel`) mostra, por nó: se está no pool, o TTFT médio e quantas vezes foi
+escolhido, falhou e passou falas adiante. `/metrics` traz `by_node`, `failovers` e
+`recovery_ms`.
+
+### Experimentos (`client/exp_desempenho.py` + `client/plot_desempenho.py`)
+
+```bash
+# 1) políticas de balanceamento
+python client/exp_desempenho.py balance -c 6 -r 4 --repeat 3
+# 2) um nó cai no meio da carga: failover ligado × desligado
+python client/exp_desempenho.py failover --fault-url http://127.0.0.1:11436 --fault-mode die
+#    com Ollama de verdade:  --fault-cmd "docker stop <container>" --recover-cmd "docker start <container>"
+# 3) fala da IA × pedidos longos na mesma fila: fifo × priority
+python client/exp_desempenho.py fila -d mestre --interactive 2 --batch 3 --batch-tokens 60
+# gráficos (PNG ao lado de cada CSV)
+python client/plot_desempenho.py
+```
+
+O nó falso (`fake_node.py`) ganhou `--slow` (nó mais lento) e defeitos ligados em
+tempo de execução por `POST /_fault`:
+
+- `kill`: cai e recusa tudo até voltar;
+- `die`: corta a conexão no meio da resposta, mas continua respondendo ao health check
+  (uma "falha cinza");
+- `hang`: trava no meio da resposta;
+- `refuse`: responde 503;
+- `crash`: o processo morre.
+
+### Resultados no nó falso (validação; os números do relatório devem vir do Ollama)
+
+Montagem: 3 nós falsos de 1 vaga, com o nó C 3× mais lento (`config/gateway.fake-multi.yaml`),
+3 repetições por configuração. CSVs e gráficos estão em
+[`results/desempenho-no-falso/`](results/desempenho-no-falso/).
+
+**Balanceamento** (6 clientes, 24 pedidos por repetição):
+
+| Política | TTFT p50 | TTFT p95 | Vazão | Pedidos A / B / C |
+| --- | --- | --- | --- | --- |
+| round-robin | 0,7 s | 4,8 s | 36 tok/s | 33% / 33% / 33% |
+| menor fila | 0,7 s | 2,2 s | 54 tok/s | 42% / 38% / 21% |
+| menor latência | 0,2 s | 5,9 s | 43 tok/s | 8% / 67% / 25% (manada) |
+| latência × carga | 0,7 s | **1,3 s** | **78 tok/s** | 44% / 43% / 12% |
+
+**Failover** (4 clientes por 14 s; o nó B corta as respostas depois de 5 tokens a partir de t = 4 s):
+
+- **ligado:** 30 pedidos ok e **0 falhas** por repetição; 9 refeitos em outro nó,
+  recuperação p50 de 0,72 s (máx. 2,3 s) e 45 tokens descartados.
+- **desligado:** 22 ok e 5 falhas por repetição.
+- Primeira versão: com o failover seguindo o round-robin, a resposta às vezes ia para o
+  nó lento e a recuperação subia para 4,5 s. Por isso o failover passou a sempre escolher
+  o nó de menor fila.
+
+**Fila** (1 nó; 2 clientes imitando a fala da IA, de 16 tokens, contra 3 clientes em lote, de 60 tokens):
+
+- **Fala da IA, latência fim a fim p50:** 4,1 s com `fifo` e **2,8 s** com `priority`
+  (−32%).
+- **Lote:** p50 igual (5,1 s), e o p95 sobe de 5,1 s para 5,6 s. É o preço pago por quem
+  perde a prioridade.
+- No nó falso, nenhuma fala estourou o orçamento de digitação, porque o texto falso é
+  longo (≈ 80 caracteres, orçamento ≈ 14 s). Com as falas curtas do modelo real
+  (≈ 40 caracteres, ≈ 8,5 s), a diferença entre as políticas deve aparecer nessa métrica.
+
+---
+
 ## Checkpoints
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ a fazer
@@ -436,10 +619,11 @@ A dupla precisa de incrementos em **pelo menos duas trilhas diferentes**. Com o 
 - ⬜ 2.4 (opcional) Autenticação por token e rate limiting por jogador no WebSocket (anti-flood), e TLS (`wss://`) medindo o custo no RTT.
 
 **Trilha Desempenho — balanceamento e failover**
-- ⬜ 2.5 Vários nós `impostor` (um em cada máquina da dupla, rede real entre eles) com **round-robin**, **menor fila** e **menor latência observada** (média móvel do TTFT).
-- ⬜ 2.6 Health check periódico e retirada/retorno automático de nós.
-- ⬜ 2.7 **Failover no meio de uma fala**: se o nó cai enquanto a IA "digita", o gateway refaz a requisição em outro nó. No jogo, o estouro do orçamento de digitação mede o custo da falha.
-- ⬜ 2.8 Política de fila alternativa: **prioridade para a fala da IA** (resposta curta, interativa) sobre a narração do Mestre e a API, comparada com FIFO sob saturação.
+- ✅ 2.5 Vários nós por domínio (`nodes:` / `IMPOSTOR_NODES`) com **round-robin**, **menor fila**, **menor latência observada** (média móvel do TTFT de serviço) e **latência × carga** (`peak_ewma`), trocáveis em tempo de execução (`POST /v1/balancer`). ⬜ Falta rodar com o Ollama das duas máquinas (rede real).
+- ✅ 2.6 Health check periódico (`/api/tags` a cada 5 s), detecção passiva por falhas seguidas, nó travado (`stall_timeout_s`) e retirada/retorno automático, com linha do tempo em `/v1/balancer`.
+- ✅ 2.7 **Failover no meio de uma fala**: evento SSE `failover`, resposta recomeça noutro nó mantendo a prioridade; `recovery_ms`, `wasted_tokens` e `nodes_path` em cada requisição. Nó falso com defeitos (`POST /_fault`) para o experimento.
+- ✅ 2.8 Fila com **prioridade para a fala da IA** com envelhecimento (`queue.policy: priority`), comparada com FIFO por `client/exp_desempenho.py fila`.
+- ✅ 2.8b Experimentos e gráficos da trilha (`exp_desempenho.py`, `plot_desempenho.py`), validados no nó falso; 18 testes novos (`tests/test_desempenho.py`).
 
 **Extra (se der tempo) — Trilha Inteligência**
 - ⬜ 2.9 Voto da IA decidido por LLM (ler a conversa e escolher o humano mais "acusável"), comparado com a heurística atual pela taxa de vitória da IA.

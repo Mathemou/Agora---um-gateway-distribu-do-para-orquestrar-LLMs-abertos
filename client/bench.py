@@ -92,7 +92,7 @@ async def main() -> None:
     sum_path = out / f"bench-{stamp}-summary.csv"
 
     raw_fields = ["clients", "rep", "client_id", "seq", "status", "ttft_ms", "e2e_ms", "tokens",
-                  "client_tps", "queue_wait_ms", "server_ttft_ms", "node_tps", "node", "error"]
+                  "client_tps", "queue_wait_ms", "server_ttft_ms", "node_tps", "node", "failovers", "error"]
     sum_fields = ["clients", "rep", "ok", "failed", "wall_s", "throughput_tok_s",
                   "ttft_p50_ms", "ttft_p95_ms", "e2e_p50_ms", "tps_mean"]
 
@@ -113,7 +113,7 @@ async def main() -> None:
                         "ttft_ms": r.ttft_ms, "e2e_ms": r.e2e_ms, "tokens": r.tokens,
                         "client_tps": r.tps, "queue_wait_ms": r.server.get("queue_wait_ms"),
                         "server_ttft_ms": r.server.get("ttft_ms"), "node_tps": r.server.get("node_tps"),
-                        "node": r.server.get("node"), "error": r.error,
+                        "node": r.server.get("node"), "failovers": r.failovers, "error": r.error,
                     })
                 ttfts = [r.ttft_ms for r in ok if r.ttft_ms is not None]
                 tpss = [r.tps for r in ok if r.tps]

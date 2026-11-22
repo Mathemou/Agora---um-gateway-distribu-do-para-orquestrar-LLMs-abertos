@@ -36,7 +36,7 @@ _PASSTHROUGH = ("temperature", "top_p", "seed", "presence_penalty", "frequency_p
 def _headers(api_key_env: str, session_id: str | None = None) -> dict[str, str]:
     key = os.environ.get(api_key_env, "").strip()
     if not key:
-        raise NodeError(f"defina a variável {api_key_env} com a chave da API")
+        raise NodeError(f"defina a variável {api_key_env} com a chave da API", fault=False)
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
@@ -139,7 +139,8 @@ async def stream_chat(
                 hint = ""
                 if resp.status_code == 429:
                     hint = f" (limite de taxa; tente de novo em {resp.headers.get('retry-after', '?')} s)"
-                raise NodeError(f"API respondeu HTTP {resp.status_code}{hint}: {body[:300]}")
+                raise NodeError(f"API respondeu HTTP {resp.status_code}{hint}: {body[:300]}",
+                                status=resp.status_code)
             async for line in resp.aiter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -186,5 +187,6 @@ async def list_models(client: httpx.AsyncClient, base_url: str, api_key_env: str
         # Nem toda API compatível expõe /models (ex.: OpenCode Go lista em outro
         # caminho). Sem o endpoint, o nó continua válido; o health check trata isso.
         return []
-    resp.raise_for_status()
+    if resp.status_code != 200:
+        raise NodeError(f"API respondeu HTTP {resp.status_code} em /models", status=resp.status_code)
     return [m.get("id", "") for m in resp.json().get("data", [])]

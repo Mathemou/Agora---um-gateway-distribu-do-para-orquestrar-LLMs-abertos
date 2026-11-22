@@ -1,0 +1,39 @@
+# Ágora na nuvem: só o gateway (a IA roda nas APIs do Groq e do OpenCode Go) + o
+# Caddy na frente, que gera o certificado HTTPS sozinho (Let's Encrypt) e repassa
+# HTTP, WebSocket e SSE para o gateway.
+#
+#   cp .env.cloud.example .env      # e preencha as chaves, o token e o DOMAIN
+#   docker compose -f docker-compose.cloud.yml up -d --build
+#   docker compose -f docker-compose.cloud.yml logs -f gateway
+
+services:
+  gateway:
+    build: ./gateway
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GATEWAY_CONFIG: /config/gateway.cloud.yaml
+    volumes:
+      - ./config:/config:ro
+      - ./logs:/app/logs          # games.jsonl e requests.jsonl sobrevivem a reinícios
+    expose:
+      - "8000"                    # só o Caddy fala com o gateway; nada aberto direto
+    mem_limit: 512m
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [gateway]
+    environment:
+      DOMAIN: "${DOMAIN:?defina DOMAIN no .env, por exemplo 129-146-10-20.sslip.io}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # certificados (não pedir de novo a cada reinício)
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

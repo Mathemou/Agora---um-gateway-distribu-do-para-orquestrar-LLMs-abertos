@@ -497,8 +497,13 @@ class Room:
         if self.gateway is None or not self.ais or self.cfg.warmup_timeout_s <= 0:
             return None
         dom = self.gateway.cfg.domains.get(self.cfg.impostor_domain)
-        if dom is None or self.gateway.cfg.nodes[dom.node].kind != "ollama":
-            return None  # cache de prefixo só faz sentido no nó local
+        if dom is None:
+            return None
+        # Cache de prefixo só faz sentido no nó local; com vários nós no pool, aquece
+        # todos (o balanceador pode mandar a fala para qualquer um deles).
+        local = [n for n in dom.pool if self.gateway.cfg.nodes[n].kind == "ollama"]
+        if not local:
+            return None
 
         async def go():
             t0 = time.monotonic()
@@ -506,9 +511,9 @@ class Room:
                 self.gateway.complete(
                     self.cfg.impostor_domain, ai.build_messages("rodada"), variables=ai.variables(),
                     max_tokens=1, source="impostor-warmup", room=self.code,
-                    timeout_s=self.cfg.warmup_timeout_s,
+                    timeout_s=self.cfg.warmup_timeout_s, node=node,
                 )
-                for ai in self.ais
+                for ai in self.ais for node in local
             ))
             self.warmup_ms = round((time.monotonic() - t0) * 1000)
 

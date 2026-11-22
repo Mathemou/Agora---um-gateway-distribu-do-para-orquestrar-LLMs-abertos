@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+
+
+def auth_headers() -> dict[str, str]:
+    """Token da API (gateway na nuvem): defina AGORA_API_TOKEN no terminal."""
+    token = os.environ.get("AGORA_API_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
 
 
 @dataclass
@@ -22,7 +29,7 @@ async def stream_events(
     client: httpx.AsyncClient, base_url: str, payload: dict[str, Any]
 ) -> AsyncIterator[Event]:
     """Faz POST /v1/chat e gera um Event por mensagem SSE recebida."""
-    async with client.stream("POST", f"{base_url}/v1/chat", json=payload) as resp:
+    async with client.stream("POST", f"{base_url}/v1/chat", json=payload, headers=auth_headers()) as resp:
         if resp.status_code != 200:
             body = (await resp.aread()).decode(errors="replace")
             yield Event("http_error", {"status": resp.status_code, "body": body}, time.perf_counter())
@@ -52,6 +59,9 @@ class ClientResult:
     text: str = ""
     server: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
+    # Failover no gateway: o texto parcial é descartado e a resposta recomeça noutro nó.
+    failovers: int = 0
+    discarded_tokens: int = 0
 
     @property
     def tps(self) -> float | None:
@@ -76,6 +86,11 @@ async def ask(
             res.text += ev.data["text"]
             if on_token:
                 on_token(ev.data["text"])
+        elif ev.name == "failover":
+            res.failovers += 1
+            res.discarded_tokens += ev.data.get("discard_tokens", 0)
+            res.tokens = 0
+            res.text = ""
         elif ev.name == "done":
             res.server = ev.data
             res.status = "ok"

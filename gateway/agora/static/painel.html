@@ -212,6 +212,16 @@ function renderNodes() {
     const bar = el("div", "qbar"); const fill = el("div"); fill.style.width = (n.max_queue ? Math.min(100, 100 * n.waiting / n.max_queue) : 0) + "%"; bar.append(fill);
     const r3 = el("div", "row"); r3.append(el("span", null, "admitidas, recusadas (503), desistências"), Object.assign(el("b"), { textContent: `${n.total_admitted} / ${n.total_rejected} / ${n.total_abandoned}` }));
     c.append(r1, r2, bar, r3);
+    // Trilha Desempenho: o nó está no pool do balanceador? quanto ele demora? quantas falas levou?
+    if (n.healthy !== undefined) {
+      const r4 = el("div", "row"); r4.append(el("span", null, "no pool do balanceador"),
+        Object.assign(el("b"), { textContent: n.healthy ? "sim" : "não (retirado)" }));
+      const r5 = el("div", "row"); r5.append(el("span", null, "TTFT do nó (média móvel)"),
+        Object.assign(el("b"), { textContent: n.ewma_ttft_ms == null ? "—" : `${Math.round(n.ewma_ttft_ms)} ms` }));
+      const r6 = el("div", "row"); r6.append(el("span", null, "escolhido · falhas · failovers saindo"),
+        Object.assign(el("b"), { textContent: `${n.selected} · ${n.failures} · ${n.failovers_from}` }));
+      c.append(r4, r5, r6);
+    }
     box.append(c);
   }
 }

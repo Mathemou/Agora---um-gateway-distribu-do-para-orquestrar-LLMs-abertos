@@ -11,6 +11,13 @@ nodes:
     # Igual ao OLLAMA_NUM_PARALLEL do nó: a fila real fica no gateway.
     max_concurrency: ${NODE_PARALLEL:-2}
     max_queue: 32
+  # 2º nó da IA impostora (trilha Desempenho): o Ollama da outra máquina da dupla, na
+  # rede local. Só entra no jogo se estiver em IMPOSTOR_NODES. Na outra máquina:
+  # OLLAMA_HOST=0.0.0.0 ollama serve (ou docker compose up node-impostor) e porta liberada.
+  node-impostor-2:
+    url: ${NODE_IMPOSTOR2_URL:-http://host.docker.internal:11435}
+    max_concurrency: ${NODE2_PARALLEL:-1}
+    max_queue: 32
   node-mestre:
     url: ${NODE_MESTRE_URL:-http://node-mestre:11434}
     max_concurrency: ${NODE_PARALLEL:-2}
@@ -43,7 +50,8 @@ nodes:
 domains:
   impostor:
     description: "IA impostora: joga disfarçada de humano"
-    node: node-impostor
+    # Um ou mais nós (pool); o gateway balanceia entre eles.
+    nodes: ${IMPOSTOR_NODES:-node-impostor}
     model: ${MODEL_IMPOSTOR:-qwen2.5:3b}
     # {alias}, {others} e {persona} são preenchidos pelo jogo. {persona} é a
     # identidade que a própria IA criou no início (gateway/agora/ai.py).
@@ -158,6 +166,22 @@ domains:
       temperature: 0.8
       num_predict: 80
       reasoning_effort: none
+
+
+# Trilha Desempenho: como escolher o nó de cada fala, health check e failover.
+# Políticas: round_robin, least_queue, least_latency, peak_ewma (latência × carga).
+# Dá para trocar em tempo de execução: POST /v1/balancer {"policy": "..."}.
+balance:
+  policy: ${BALANCE_POLICY:-peak_ewma}
+  failover: true          # nó caiu no meio da fala? refaz noutro nó do pool
+  health_interval_s: 5    # GET /api/tags em cada Ollama a cada 5 s
+  fail_threshold: 2       # falhas seguidas para tirar o nó do pool
+  stall_timeout_s: 30     # stream parado por 30 s depois do 1º token = nó travado
+
+# Fila de cada nó: fifo, ou priority (a fala da IA passa na frente do Mestre e da API,
+# com envelhecimento para ninguém esperar para sempre).
+queue:
+  policy: ${QUEUE_POLICY:-fifo}
 
 game:
   # Quem joga como IA por padrão (o anfitrião pode trocar ao criar a sala).

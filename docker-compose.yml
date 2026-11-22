@@ -79,6 +79,14 @@ services:
       # OpenCode Go (opcional: só para o domínio impostor-opencode).
       OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
       MODEL_OPENCODE: ${MODEL_OPENCODE:-glm-5.3-flash}
+      # Trilha Desempenho: vários nós para a IA, política de balanceamento e de fila.
+      IMPOSTOR_NODES: ${IMPOSTOR_NODES:-node-impostor}
+      NODE_IMPOSTOR2_URL: ${NODE_IMPOSTOR2_URL:-http://host.docker.internal:11435}
+      NODE2_PARALLEL: ${NODE2_PARALLEL:-1}
+      BALANCE_POLICY: ${BALANCE_POLICY:-peak_ewma}
+      QUEUE_POLICY: ${QUEUE_POLICY:-fifo}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./config:/config:ro
       - ./logs:/app/logs

@@ -46,6 +46,14 @@ class RequestRecord:
     node_load_ms: float | None = None
     node_prompt_eval_ms: float | None = None
     error: str | None = None
+    # Trilha Desempenho: quantas vezes a resposta trocou de nó, quantos tokens foram
+    # jogados fora (gerados no nó que caiu), o caminho ("n1>n2") e o tempo da falha
+    # até o 1º token no nó novo (recovery_ms).
+    failovers: int = 0
+    wasted_tokens: int = 0
+    nodes_path: str | None = None
+    recovery_ms: float | None = None
+    priority: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {k: (round(v, 3) if isinstance(v, float) else v) for k, v in asdict(self).items()}
@@ -114,13 +122,18 @@ class MetricsStore:
 
         by_status: dict[str, int] = {}
         by_source: dict[str, int] = {}
+        by_node: dict[str, int] = {}
         for r in recs:
             by_status[r.status] = by_status.get(r.status, 0) + 1
             by_source[r.source] = by_source.get(r.source, 0) + 1
+            by_node[r.node] = by_node.get(r.node, 0) + 1
         return {
             "requests": len(recs),
             "by_status": by_status,
             "by_source": by_source,
+            "by_node": by_node,
+            "failovers": sum(r.failovers for r in recs),
+            "recovery_ms": stats("recovery_ms"),
             "ttft_ms": stats("ttft_ms"),
             "e2e_ms": stats("e2e_ms"),
             "queue_wait_ms": stats("queue_wait_ms"),

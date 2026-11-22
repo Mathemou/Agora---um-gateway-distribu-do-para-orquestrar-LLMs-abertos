@@ -10,3 +10,4 @@ logs/*
 results/*
 !results/.gitkeep
 !results/red-team-*.csv
+!results/desempenho-no-falso/
