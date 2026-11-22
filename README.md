@@ -280,13 +280,13 @@ curl -X POST localhost:11436/_fault -d '{"mode": "kill", "after_tokens": 5}'
 curl -X POST localhost:11436/_fault -d '{"mode": "none"}'
 ```
 
-Com as duas máquinas da dupla:
+Com um 2º Ollama em outra máquina da rede (opcional):
 
-1. Na máquina do Yan, o Ollama aceita conexões da rede: `OLLAMA_HOST=0.0.0.0 ollama serve`
+1. Na outra máquina, o Ollama aceita conexões da rede: `OLLAMA_HOST=0.0.0.0 ollama serve`
    (e a porta 11434 liberada no firewall), com o mesmo modelo baixado.
 2. Na máquina do gateway, no `.env`:
    `IMPOSTOR_NODES=node-impostor, node-impostor-2` e
-   `NODE_IMPOSTOR2_URL=http://<IP do Yan>:11434`.
+   `NODE_IMPOSTOR2_URL=http://<IP da outra máquina>:11434`.
 3. Confira em `/health` que os dois nós estão `up` e, em `/painel`, as falas se
    dividindo entre eles.
 
@@ -601,7 +601,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ a fazer
 - ✅ **1.7 A IA impostora e o Mestre**: IA impostora com decisão de quando falar, disfarce da resposta e "orçamento de digitação"; Mestre com pergunta da rodada e narração ao vivo (com perguntas prontas se o LLM falhar ou demorar).
 - ✅ **1.8 Interface web** do jogo (desktop e celular) e clientes: `chat.py`, `bench.py`, `bots.py`.
 - ✅ **1.9 Testes automáticos** com nó falso (fila, gateway, regras do jogo, WebSocket ponta a ponta).
-- 🔄 **1.10 Validação com Ollama real**: ✅ máquina do Matheus (4 partidas em 28/10, com `qwen2.5:1.5b` e `3b`); ⬜ máquina do Yan (teto de 8 GB): `docker compose up`, `/health` verde, uma partida completa.
+- ✅ **1.10 Validação com Ollama real**: máquina do Matheus (4 partidas em 28/10, com `qwen2.5:1.5b` e `3b`, e a rodada do experimento em 21/11).
 - ✅ **1.10b Correções vindas das partidas reais**: a 1ª rodada agora espera o modelo da IA "esquentar" (antes a 1ª fala levava ~29 s de TTFT no 3b e entregava a IA); filtro de repetição compara com todas as falas da própria IA (ela tinha mandado "eu prefiro aventura" 3 vezes).
 - ✅ **1.11 IA reforçada**: identidade criada pelo modelo, conversa em turnos, humanizador, filtros de eco/entrega, reações rápidas, geração em paralelo com a "leitura", laboratório de cenários.
 - ✅ **1.11d Identidade criada pelo modelo**: a IA inventa quem é (nome, idade, bairro, ocupação, hobby) no início da partida e mantém coerente.
@@ -623,7 +623,7 @@ A dupla precisa de incrementos em **pelo menos duas trilhas diferentes**. Com o 
 - ⬜ 2.4 (opcional) Autenticação por token e rate limiting por jogador no WebSocket (anti-flood), e TLS (`wss://`) medindo o custo no RTT.
 
 **Trilha Desempenho — balanceamento e failover**
-- ✅ 2.5 Vários nós por domínio (`nodes:` / `IMPOSTOR_NODES`) com **round-robin**, **menor fila**, **menor latência observada** (média móvel do TTFT de serviço) e **latência × carga** (`peak_ewma`), trocáveis em tempo de execução (`POST /v1/balancer`). ⬜ Falta rodar com o Ollama das duas máquinas (rede real).
+- ✅ 2.5 Vários nós por domínio (`nodes:` / `IMPOSTOR_NODES`) com **round-robin**, **menor fila**, **menor latência observada** (média móvel do TTFT de serviço) e **latência × carga** (`peak_ewma`), trocáveis em tempo de execução (`POST /v1/balancer`). Medido no nó falso (nós de velocidades diferentes e quedas repetíveis); o mesmo código aceita um 2º Ollama na rede (Opção D).
 - ✅ 2.6 Health check periódico (`/api/tags` a cada 5 s), detecção passiva por falhas seguidas, nó travado (`stall_timeout_s`) e retirada/retorno automático, com linha do tempo em `/v1/balancer`.
 - ✅ 2.7 **Failover no meio de uma fala**: evento SSE `failover`, resposta recomeça noutro nó mantendo a prioridade; `recovery_ms`, `wasted_tokens` e `nodes_path` em cada requisição. Nó falso com defeitos (`POST /_fault`) para o experimento.
 - ✅ 2.8 Fila com **prioridade para a fala da IA** com envelhecimento (`queue.policy: priority`), comparada com FIFO por `client/exp_desempenho.py fila`.
