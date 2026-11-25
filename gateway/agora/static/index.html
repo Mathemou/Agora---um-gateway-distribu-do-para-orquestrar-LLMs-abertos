@@ -41,6 +41,9 @@ button.ghost { background: transparent; }
 input, select { background: var(--surface); border: 1px solid var(--line2); border-radius: 8px; padding: 10px 12px; min-width: 0; }
 input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .app { min-height: 100%; display: flex; flex-direction: column; }
+/* durante a partida a página tem a altura da janela: a fase, o tempo e os botões
+   ficam sempre visíveis, e só a lista de mensagens rola */
+body.in-game .app { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
 .mono { letter-spacing: .12em; font-variant-numeric: tabular-nums; }
@@ -88,7 +91,7 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
 .seat .tag { margin-left: auto; font-size: 12px; color: var(--muted); }
 
 /* partida */
-.game { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 20px 24px 24px; max-width: 1240px; width: 100%; margin: 0 auto; min-height: 0; }
+.game { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr); gap: 20px; padding: 20px 24px 24px; max-width: 1240px; width: 100%; margin: 0 auto; min-height: 0; }
 .board { display: flex; flex-direction: column; min-height: 0; gap: 14px; }
 .phasebar { display: flex; align-items: flex-end; gap: 16px; padding: 4px 2px 12px; border-bottom: 1px solid var(--line); }
 .phase-name { font: 30px/1.1 var(--display); }
@@ -96,8 +99,8 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
 .timer.low { color: var(--danger); }
 .topic { font: 21px/1.35 var(--display); max-width: 60ch; }
 .topic .label { display: block; font: 13px/1.4 var(--sans); margin-bottom: 4px; }
-.chat { flex: 1; min-height: 320px; display: flex; flex-direction: column; overflow: hidden; padding: 0; }
-.msgs { flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.chat { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+.msgs { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
 .msg { display: flex; gap: 10px; align-items: flex-start; max-width: 80%; }
 .msg .who { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
 .msg .bubble { background: var(--sunk); padding: 8px 12px; border-radius: 4px 12px 12px 12px; overflow-wrap: anywhere; }
@@ -115,7 +118,7 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
 .composer input { flex: 1; }
 .dead-note { padding: 14px; text-align: center; color: var(--muted); border-top: 1px solid var(--line); font-size: 14px; }
 
-.side { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.side { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; }
 .side .card { padding: 18px; }
 .players { display: grid; gap: 6px; }
 .pcard { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; border: 1px solid transparent; background: none; text-align: left; width: 100%; position: relative; }
@@ -162,9 +165,19 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 18px; }
 .stat { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
 .stat .v { font: 28px/1.1 var(--display); margin-top: 4px; }
+/* aviso de votação: aparece no alto da tela até a pessoa votar */
+.vote-alert { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 25; display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 20px; border-radius: 12px; background: var(--danger); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.22); max-width: calc(100% - 24px); animation: drop .35s cubic-bezier(.2,.9,.3,1.3); }
+.vote-alert .va-title { font: 22px/1.1 var(--display); }
+.vote-alert .va-sub { font-size: 13px; opacity: .9; }
+.vote-alert .va-time { font: 26px/1 var(--display); font-variant-numeric: tabular-nums; margin-left: 6px; }
+.vote-alert button { background: #fff; color: var(--danger); border-color: #fff; font-weight: 600; padding: 8px 14px; }
+@keyframes drop { from { transform: translate(-50%, -30px); opacity: 0; } }
+/* nos 10 s finais da votação a borda da tela pulsa em vermelho */
+.vote-flash { position: fixed; inset: 0; z-index: 24; pointer-events: none; box-shadow: inset 0 0 0 4px var(--danger), inset 0 0 90px rgba(200, 40, 30, .35); background: rgba(200, 40, 30, .06); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 30; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; animation: fade .2s; max-width: calc(100% - 32px); }
 
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } .verdict, .tallies { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } .verdict, .tallies { opacity: 1; } .vote-flash { opacity: .6; } }
 @media (max-width: 880px) {
   .hero, .lobby-wrap { grid-template-columns: 1fr; gap: 28px; }
   .home { padding: 28px 16px; }
@@ -174,7 +187,8 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
   .board, .side { display: contents; }
   .phasebar { order: 1; } .topic { order: 2; } .me-card { display: none !important; }
   .players-card { order: 3; padding: 12px !important; } .actions { order: 4; padding: 12px !important; }
-  .game-chat { order: 5; min-height: 70vh; } .netstat { order: 6; }
+  body.in-game .app { height: auto; min-height: 100%; overflow: visible; }
+  .game-chat { order: 5; height: 70vh; height: 70dvh; } .netstat { order: 6; }
   .players { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pcard { flex-direction: column; gap: 4px; padding: 10px 4px 8px; text-align: center; }
   .pcard .pname { font-size: 15px; }
@@ -185,6 +199,9 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
   .code-big { font-size: 54px; }
   .msg { max-width: 92%; }
   header.top { padding: 10px 16px; }
+  .vote-alert { top: 8px; padding: 10px 10px 10px 14px; gap: 10px; white-space: nowrap; }
+  .vote-alert .va-sub { display: none; }
+  .vote-alert .va-title, .vote-alert .va-time { font-size: 19px; }
 }
 </style>
 </head>
@@ -316,6 +333,12 @@ details.opts .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap:
 
 <div id="overlay" class="overlay hidden"></div>
 <div id="toast" class="toast hidden" role="status"></div>
+<div id="voteFlash" class="vote-flash hidden" aria-hidden="true"></div>
+<div id="voteAlert" class="vote-alert hidden" role="alert">
+  <div><div class="va-title">Hora de votar!</div><div class="va-sub">Escolha quem exilar na lista de participantes.</div></div>
+  <div id="voteAlertTime" class="va-time">--:--</div>
+  <button id="voteAlertBtn" type="button">Votar</button>
+</div>
 
 <script>
 "use strict";
@@ -357,6 +380,7 @@ function avatar(alias, color, size) {
 }
 function show(screen) {
   for (const id of ["home", "lobby", "game"]) $(id).classList.toggle("hidden", id !== screen);
+  document.body.classList.toggle("in-game", screen === "game");
 }
 function fmt(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -663,10 +687,35 @@ $("skipBtn").onclick = () => send({ type: "vote", target: null });
 
 setInterval(() => {
   const t = $("timer");
-  if (!S.state || S.deadline == null) { t.textContent = "--:--"; t.classList.remove("low"); return; }
-  const left = S.deadline - performance.now();
-  t.textContent = fmt(left); t.classList.toggle("low", left < 10000);
+  const st = S.state;
+  const left = st && S.deadline != null ? S.deadline - performance.now() : null;
+  if (left == null) { t.textContent = "--:--"; t.classList.remove("low"); }
+  else { t.textContent = fmt(left); t.classList.toggle("low", left < 10000); }
+  updateVoteAlert(st, left);
 }, 250);
+
+// Aviso de votação: fica no alto da tela enquanto a pessoa (viva) ainda não votou,
+// com o tempo restante; nos 10 s finais a borda da tela pisca em vermelho.
+const BASE_TITLE = document.title;
+function updateVoteAlert(st, left) {
+  const pending = !!st && st.phase === "votacao" && st.you && st.you.alive && !st.you.voted
+    && $("overlay").classList.contains("hidden");
+  $("voteAlert").classList.toggle("hidden", !pending);
+  const flash = pending && left != null && left > 0 && left <= 10000;
+  $("voteFlash").classList.toggle("hidden", !flash);
+  if (pending) {
+    $("voteAlertTime").textContent = left == null ? "--:--" : fmt(left);
+    // aba em segundo plano: o título alterna para chamar atenção
+    document.title = document.hidden && Math.floor(performance.now() / 1000) % 2 ? "Vote agora! · Ágora" : BASE_TITLE;
+  } else if (document.title !== BASE_TITLE) {
+    document.title = BASE_TITLE;
+  }
+}
+$("voteAlertBtn").onclick = () => {
+  const players = $("players");
+  players.scrollIntoView({ behavior: "smooth", block: "center" });
+  const first = players.querySelector(".pcard.votable"); if (first) first.focus();
+};
 
 // ------------------------------------------------------------------ revelação e fim
 function closeOverlay() { $("overlay").classList.add("hidden"); $("overlay").replaceChildren(); }
